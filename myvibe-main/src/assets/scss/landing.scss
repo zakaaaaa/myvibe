@@ -1,0 +1,379 @@
+section.started {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+
+    .logo {
+        margin-bottom: 10vh;
+
+        img {
+            width: 170px;
+        }
+
+        h1 {
+            text-align: center;
+            color: $white;
+            font-size: 36px;
+            font-weight: 600;
+
+            span {
+                color: $purple;
+            }
+        }
+    }
+
+    .swiper-section {
+        width: 100%;
+
+        .myVibeSwipe {
+            width: 100%;
+
+            .swiper-wrapper {
+
+                .swiper-slide {
+                    display: block;
+                    background-position: center center;
+                    background-repeat: no-repeat;
+                    background-size: cover;
+                    width: 50%;
+                    aspect-ratio: 3 / 3.5;
+                    overflow: hidden;
+                    border-radius: 15px;
+                }
+            }
+        }
+
+        h1.title {
+            color: $white1;
+            text-align: center;
+            margin: 30px 0 20vh;
+            font-size: 38px;
+            font-weight: 600;
+
+            span.highlight {
+                color: $purple;
+            }
+        }
+    }
+
+    .bottom-float-action {
+        position: absolute;
+        bottom: 5vh;
+        left: 0;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+
+        span.or {
+            font-size: 12px;
+            font-weight: 500;
+            margin: 5px 0;
+            color: $white;
+            opacity: .7;
+        }
+
+        p {
+            color: $white1;
+            font-size: 13px;
+
+            a {
+                color: $purple;
+            }
+        }
+
+        .login-socmed {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            .btn-login-socmed {
+                background: $purple;
+                margin: 0 5px;
+                color: $white;
+                font-weight: 500;
+                font-size: 16px;
+                padding: 8px 30px;
+                border-radius: 30px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                text-decoration: none;
+                border: none;
+
+                .login-socmed_image {
+                    height: 20px;
+                    width: 20px;
+                    margin-right: 8px;
+                }
+            }
+        }
+    }
+}
+
+section.auth {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: auto;
+
+    &.fill-profile {
+        display: block;
+        padding: 60px 0;
+    }
+
+    .back {
+        font-size: 13px;
+
+        a {
+            color: $white1;
+            text-decoration: none;
+        }
+    }
+
+    h1.title {
+        color: $white1;
+        font-size: 32px;
+        font-weight: 600;
+        margin-bottom: 0.2rem;
+
+        span.highlight {
+            color: $purple;
+        }
+    }
+
+    small {
+        color: $white1;
+        font-size: 18px;
+        font-weight: 600;
+
+        span.highlight {
+            color: $purple;
+        }
+    }
+
+    form {
+        color: $white1;
+
+        .form-label {
+            font-size: 13px;
+            margin-bottom: 0;
+        }
+
+        .form-control {
+            border: none;
+            background: $background_second;
+            color: $white1;
+            outline: none !important;
+            box-shadow: none !important;
+            min-height: 45px;
+
+            &::placeholder {
+                color: $grey1;
+                font-size: 13px;
+                font-style: italic;
+                font-weight: 300;
+            }
+        }
+
+        p {
+            text-align: center;
+            font-size: 13px;
+
+            span {
+                color: $purple;
+                text-decoration: underline;
+                cursor: pointer;
+            }
+
+            a {
+                color: $purple;
+                text-decoration: underline;
+                cursor: pointer;
+            }
+        }
+
+        .vue-select {
+            .control {
+                border: none;
+                min-height: 45px;
+                background: $background_second;
+                color: $white1;
+                outline: none !important;
+                box-shadow: none !important;
+
+                .value-container {
+                    .single-value {
+                        color: $white1;
+                        font-size: 1rem;
+                        display: -webkit-box;
+                        max-width: 90%;
+                        white-space: pre-wrap;
+                        word-break: keep-all;
+                        text-overflow: ellipsis;
+                        overflow: hidden;
+                        -webkit-line-clamp: 1;
+                        -webkit-box-orient: vertical;
+                    }
+
+                    .search-input {
+                        color: $white1;
+                        font-size: 1rem;
+
+                        &::placeholder {
+                            color: $grey1;
+                            font-size: 13px;
+                            font-style: italic;
+                        }
+                    }
+                }
+
+                .indicators-container {
+                    .dropdown-icon {
+                        color: $grey1;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                    }
+                }
+            }
+
+            .menu {
+                border-color: $grey1;
+                background: rgb(30 30 31);
+                outline: none !important;
+                box-shadow: none !important;
+
+                &::-webkit-scrollbar-thumb {
+                    background: rgba($purple, 0.9);
+                }
+
+                .menu-option {
+                    display: flex;
+                    align-items: baseline;
+                    flex-wrap: wrap;
+                    background: transparent;
+                    color: $white1;
+                    border-bottom: 1px solid $grey1;
+
+                    small {
+                        font-size: 10px;
+                        font-weight: 300;
+                        margin-left: 5px;
+                    }
+
+                    &:last-child {
+                        border: none;
+                    }
+                }
+            }
+        }
+
+        .profile-picture-cage {
+            background: $background_second;
+            display: flex;
+            align-items: center;
+            border-radius: 55px;
+            padding: 10px;
+
+            .image {
+                width: 57px;
+                height: 57px;
+                overflow: hidden;
+                border-radius: 50%;
+                background: #1e1e21;
+
+                img {
+                    width: 100%;
+                    aspect-ratio: 1/1;
+                }
+            }
+
+            p {
+                width: calc(100% - 57px);
+                margin: 0;
+                padding: 0 50px 0 20px;
+                font-size: 15px;
+                text-align: left;
+            }
+        }
+    }
+
+    .separator {
+        position: relative;
+        z-index: 2;
+        display: block;
+        text-align: center;
+        margin: 8px 0;
+
+        span {
+            color: $white1;
+            background: transparent;
+            padding: 3px 6px;
+        }
+
+        &::before {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            top: 50%;
+            left: 0;
+            width: calc(50% - 20px);
+            height: 1px;
+            background-color: rgba($purple, 0.5);
+        }
+
+        &::after {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            top: 50%;
+            right: 0;
+            width: calc(50% - 20px);
+            height: 1px;
+            background-color: rgba($purple, 0.5);
+        }
+    }
+}
+
+
+
+@media (max-height: 700px) {
+    section.auth {
+        display: block;
+        padding: 60px 0;
+        overflow: auto;
+    }
+
+    section.started {
+        .swiper-section {
+            h1.title {
+                font-size: 26px;
+            }
+        }
+
+        .bottom-float-action {
+            .btn-action {
+                font-size: 16px;
+                padding: 8px 25px !important;
+            }
+
+            .login-socmed {
+                margin-bottom: 16px !important;
+
+                .btn-login-socmed {
+                    font-size: 16px;
+                    padding: 8px 25px !important;
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,244 @@
+@import "./node_modules/bootstrap/scss/bootstrap";
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap");
+@import "color";
+
+html {
+    --ion-safe-area-top: env(safe-area-inset-top);
+
+    ::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+#myVibeApps {
+    display: flex;
+    justify-content: center;
+    background-color: $background;
+    font-family: "Poppins", sans-serif;
+
+    main {
+        padding-top: env(safe-area-inset-top);
+        width: 100%;
+        max-width: 480px !important;
+        height: 100dvh;
+        background: $background;
+        position: relative;
+        overflow: hidden;
+
+        .back-top {
+            position: fixed;
+            top: 0;
+            left: 50%;
+            width: 100%;
+            max-width: 480px !important;
+            transform: translateX(-50%);
+            height: 24px;
+            background: $background;
+            z-index: 1017;
+            padding: 24px;
+            padding-top: env(safe-area-inset-top);
+        }
+
+        .back-button-vibes {
+            position: fixed;
+            top: 0;
+            left: 50%;
+            width: 100%;
+            max-width: 480px !important;
+            transform: translateX(-50%);
+            height: 24px;
+            background: transparent;
+            z-index: 1017;
+            padding: 24px;
+            padding-top: env(safe-area-inset-top);
+        }
+
+        section {
+            position: relative;
+
+            .container {
+                padding-left: 24px;
+                padding-right: 24px;
+            }
+        }
+    }
+
+    button {
+        outline: none !important;
+        box-shadow: none !important;
+    }
+
+    .modal {
+        .modal-dialog {
+            justify-content: center;
+
+            .modal-content {
+                border: none;
+                background-color: $background;
+                color: $white;
+                border-radius: 25px;
+                max-width: 330px !important;
+
+                .modal-header {
+                    padding: 8px 16px;
+                    border-color: rgba($white, 0.08);
+
+                    button {
+                        background-color: $purple;
+                    }
+                }
+
+                .modal-body {
+                    font-size: 13px;
+
+                    p {
+                        text-align: justify;
+                    }
+
+                    &.notification {
+                        .logo {
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            flex-direction: column;
+                            margin-bottom: 8px;
+
+                            img {
+                                width: 50px;
+                            }
+
+                            h1 {
+                                color: $white;
+                                font-size: 18px;
+                                font-weight: 600;
+
+                                span {
+                                    color: $purple;
+                                }
+                            }
+                        }
+
+                        .title {
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            flex-direction: column;
+                            margin-bottom: 8px;
+
+                            h1 {
+                                color: $white;
+                                font-size: 18px;
+                                font-weight: 600;
+
+                                span {
+                                    color: $red;
+
+                                    &.success {
+                                        color: $purple;
+                                    }
+                                }
+                            }
+                        }
+
+                        h2 {
+                            text-align: center;
+                        }
+
+                        .btn-group-action {
+                            margin-top: 20px;
+                            display: flex;
+                            justify-content: space-evenly;
+
+                            .btn-dismiss {
+                                background-color: $grey1;
+                                color: $white;
+                            }
+
+                            .btn-link {
+                                background-color: $purple;
+                                color: $white1;
+                                text-decoration: none;
+                            }
+                        }
+                    }
+
+                    .btn-list {
+                        list-style: none;
+                        margin: 0;
+                        width: 100%;
+                        padding: 0;
+
+                        li {
+                            width: 100%;
+
+                            button {
+                                width: 100%;
+                                background: transparent;
+                                text-align: left;
+                                border: none;
+                                color: $white;
+                                font-size: 16px;
+                                font-weight: 500;
+                                padding: 10px 0;
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                            }
+                        }
+                    }
+                }
+
+                .modal-button {
+                    border-top: 1px solid rgba($white, 0.08);
+                    padding: 12px;
+
+                    .btn-block {
+                        display: block;
+                        width: 100%;
+                        border: none;
+                        background: transparent;
+                        color: $white;
+                        font-weight: 500;
+                        text-decoration: none;
+
+                        &.purple {
+                            color: $purple;
+                            font-weight: 700;
+                            text-align: center;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    .btn-action {
+        display: block;
+        width: 80%;
+        max-width: 350px;
+        background: $purple;
+        padding: 15px 30px;
+        border-radius: 30px;
+        color: $white;
+        text-decoration: none;
+        text-align: center;
+        font-size: 18px;
+        font-weight: 500;
+        border: none
+    }
+
+    .loading {
+        position: fixed;
+        top: calc(50% - 33px);
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1100;
+        font-size: 42px;
+        color: $white1
+    }
+}
+
+@import "landing";
+@import "dashboard";
+@import "vibes";
+@import "responsive";

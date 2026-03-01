@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MyVibe</string>
+    <string name="title_activity_main">MyVibe</string>
+    <string name="package_name">com.myvibecommunity.app</string>
+    <string name="custom_url_scheme">com.myvibecommunity.app</string>
+</resources>
