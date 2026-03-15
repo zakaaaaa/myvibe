@@ -16,7 +16,7 @@ class FirebaseServiceProvider extends ServiceProvider
     {
         $this->app->singleton('firebase', function () {
             // Load the service account credentials from the .env file
-            $credentialsPath = '/home/lbuwruco/api.myvibeapp.co/storage/firebase/firebase-credentials.json';
+            $credentialsPath = storage_path('firebase/firebase_credentials.json');
 
             if (!file_exists($credentialsPath)) {
                 throw new \Exception('Firebase credentials file not found.' . $credentialsPath);

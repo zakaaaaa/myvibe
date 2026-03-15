@@ -156,7 +156,7 @@ export default {
 		const isMobile = Capacitor.isNativePlatform();
 		if (isMobile) {
 			GoogleAuth.initialize({
-				clientId: '46738324149-jgo4297c9p82210kjtfht3t811toluao.apps.googleusercontent.com',
+				clientId: '46760281130-718s2v8sbmtiu3h1ak5c2shchucfak8k.apps.googleusercontent.com',
 				scopes: ['profile', 'email'],
 				grantOfflineAccess: true
 			});

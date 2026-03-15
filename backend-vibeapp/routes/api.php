@@ -45,7 +45,7 @@ Route::prefix('auth')->group(function () {
     Route::get('login/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
     Route::post('login/google', [GoogleAuthController::class, 'registerGoogle']);
 });
-
+Route::get('/proxy', [\App\Http\Controllers\Api\ProxyController::class, 'proxy']);
 Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::get('/profile', function (Request $request) {
         return $request->user();
@@ -60,6 +60,8 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::get('/cors', function(){
         return DB::table('settings')->where('id',1)->first('value as url');
     });
+
+   
 
     Route::apiResource('/friendship', FriendshipController::class);
     Route::get('/friendship/{username}', [FriendshipController::class, 'show'])->name('friend.profile');
