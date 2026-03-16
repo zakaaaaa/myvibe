@@ -6,6 +6,7 @@ import LoginView from '@/views/LoginView.vue'
 import ForgotPasswordView from '@/views/ForgotPasswordView.vue'
 import ResendVerifyView from '@/views/ResendVerifyView.vue'
 import FillProfileView from '@/views/FillProfileView.vue'
+import WelcomeView from '@/views/WelcomeView.vue'
 import DashboardView from '@/views/dashboard/DashboardView.vue'
 import HomeMoreView from '@/views/dashboard/HomeMoreView.vue'
 import AddView from '@/views/dashboard/add/AddView.vue'
@@ -55,6 +56,11 @@ const routes = [
 		name: 'fill-vibe',
 		component: FillProfileView
 	},
+	{
+    path: '/welcome',
+    name: 'welcome',
+    component: WelcomeView
+},
 	{
 		path: '/dashboard',
 		name: 'dashboard',

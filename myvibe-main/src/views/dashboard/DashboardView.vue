@@ -1,5 +1,12 @@
 <template>
 	<section class="dashboard">
+		<!-- Dashboard Blobs -->
+		<div class="dash-blob dash-blob--1"></div>
+		<div class="dash-blob dash-blob--2"></div>
+		<div class="dash-blob dash-blob--3"></div>
+		<div class="dash-blob dash-blob--4"></div>
+		<div class="dash-blob dash-blob--5"></div>
+
 		<div v-if="!isLoading">
 			<div v-if="isHome">
 				<HomeComponent :profile="profile" :home="home" :others="others"></HomeComponent>
@@ -32,6 +39,9 @@
 				</svg>
 			</li>
 		</ul>
+
+		<!-- Onboarding Tour -->
+		<OnboardingTour :show="showOnboarding" @complete="onOnboardingComplete" />
 	</section>
 </template>
 
@@ -39,6 +49,7 @@
 import HomeComponent from './HomeView.vue';
 import FriendsComponent from './FriendsView.vue';
 import ChatComponent from './ChatView.vue';
+import OnboardingTour from '@/components/OnboardingTour.vue';
 
 import authService from '@/services/authService';
 import dashboardService from '@/services/dashboardService';
@@ -49,7 +60,8 @@ export default {
 	components: {
 		HomeComponent,
 		FriendsComponent,
-		ChatComponent
+		ChatComponent,
+		OnboardingTour
 	},
 	data() {
 		return {
@@ -60,7 +72,8 @@ export default {
 			isChat: false,
 			profile: [],
 			home: [],
-			others: []
+			others: [],
+			showOnboarding: false
 		};
 	},
 	mounted() {
@@ -69,6 +82,18 @@ export default {
 		this.getOther();
 	},
 	methods: {
+		checkOnboarding() {
+			const done = localStorage.getItem('onboarding_done');
+			const fromWelcome = this.$route.query.from === 'welcome';
+			if (!done || fromWelcome) {
+				setTimeout(() => {
+					this.showOnboarding = true;
+				}, 800);
+			}
+		},
+		onOnboardingComplete() {
+			this.showOnboarding = false;
+		},
 		splitString(data) {
 			return data.split(' ');
 		},
@@ -80,6 +105,7 @@ export default {
 				this.profile.profile_picture = process.env.VUE_APP_API_URL + '/' + this.profile.profile_picture || logo;
 				this.isHome = true;
 				this.isLoading = false;
+				this.checkOnboarding();
 			} catch (error) {
 				console.error('Error fetching profile:', error);
 			} finally {
@@ -162,28 +188,156 @@ export default {
 				this.isHome = true;
 				this.isFriend = false;
 				this.isChat = false;
-				this.$router.push({
-					path: '/dashboard',
-					query: { current: 'home' }
-				});
+				this.$router.push({ path: '/dashboard', query: { current: 'home' } });
 			} else if (current == 'friend') {
 				this.isHome = false;
 				this.isFriend = true;
 				this.isChat = false;
-				this.$router.push({
-					path: '/dashboard',
-					query: { current: 'friend' }
-				});
+				this.$router.push({ path: '/dashboard', query: { current: 'friend' } });
 			} else if (current == 'chat') {
 				this.isHome = false;
 				this.isFriend = false;
 				this.isChat = true;
-				this.$router.push({
-					path: '/dashboard',
-					query: { current: 'chat' }
-				});
+				this.$router.push({ path: '/dashboard', query: { current: 'chat' } });
 			}
 		}
 	}
 };
 </script>
+<style lang="scss" scoped>
+@import '@/assets/scss/color.scss';
+
+// === DASHBOARD BLOBS - BIGGER & MORE VISIBLE ===
+.dash-blob {
+	position: fixed;
+	filter: blur(50px);
+	pointer-events: none;
+	z-index: 0;
+}
+
+.dash-blob--1 {
+	top: -6%;
+	left: -10%;
+	width: min(360px, 80vw);
+	height: min(360px, 80vw);
+	background: radial-gradient(circle, rgba($purple, 0.35) 0%, rgba(#6c5ce7, 0.12) 40%, transparent 70%);
+	border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+	animation: dashBlobMorph1 12s ease-in-out infinite;
+}
+
+.dash-blob--2 {
+	bottom: 4%;
+	right: -8%;
+	width: min(320px, 72vw);
+	height: min(320px, 72vw);
+	background: radial-gradient(circle, rgba(#4a3adf, 0.3) 0%, rgba($purple, 0.1) 40%, transparent 70%);
+	border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+	animation: dashBlobMorph2 14s ease-in-out infinite;
+}
+
+.dash-blob--3 {
+	top: 35%;
+	left: 50%;
+	transform: translateX(-50%);
+	width: min(380px, 85vw);
+	height: min(200px, 45vw);
+	background: radial-gradient(ellipse, rgba($purple, 0.18) 0%, rgba(#7c6cf0, 0.06) 40%, transparent 70%);
+	border-radius: 50%;
+	animation: dashBlobFloat 10s ease-in-out infinite;
+}
+
+.dash-blob--4 {
+	top: 60%;
+	left: -10%;
+	width: min(260px, 58vw);
+	height: min(260px, 58vw);
+	background: radial-gradient(circle, rgba(#9b8fff, 0.25) 0%, rgba($purple, 0.08) 50%, transparent 70%);
+	border-radius: 50% 30% 40% 60% / 40% 60% 50% 50%;
+	animation: dashBlobMorph3 16s ease-in-out infinite;
+}
+
+.dash-blob--5 {
+	bottom: 25%;
+	right: -5%;
+	width: min(220px, 50vw);
+	height: min(220px, 50vw);
+	background: radial-gradient(circle, rgba($purple, 0.2) 0%, transparent 70%);
+	border-radius: 60% 40% 60% 40% / 50% 50% 50% 50%;
+	animation: dashBlobMorph1 18s ease-in-out infinite reverse;
+}
+
+@keyframes dashBlobMorph1 {
+	0%, 100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; transform: translate(0, 0) rotate(0deg); }
+	50% { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; transform: translate(14px, 18px) rotate(40deg); }
+}
+@keyframes dashBlobMorph2 {
+	0%, 100% { border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; transform: translate(0, 0) rotate(0deg); }
+	50% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; transform: translate(-16px, -12px) rotate(-40deg); }
+}
+@keyframes dashBlobFloat {
+	0%, 100% { transform: translateX(-50%) translateY(0) scale(1); opacity: 0.18; }
+	50% { transform: translateX(-50%) translateY(-16px) scale(1.06); opacity: 0.28; }
+}
+@keyframes dashBlobMorph3 {
+	0%, 100% { border-radius: 50% 30% 40% 60% / 40% 60% 50% 50%; transform: translate(0, 0) rotate(0deg); }
+	33% { border-radius: 40% 60% 50% 40% / 60% 40% 60% 50%; transform: translate(12px, -14px) rotate(30deg); }
+	66% { border-radius: 60% 40% 60% 40% / 50% 50% 40% 60%; transform: translate(-10px, 12px) rotate(-25deg); }
+}
+
+// === SLIDE DOWN ENTRANCE ===
+:deep(.vibe-profile) {
+	animation: dashSlideDown 0.6s ease-out both;
+}
+
+:deep(.vibe-section-preview) {
+	animation: dashSlideDown 0.6s ease-out both;
+
+	&:nth-child(1) { animation-delay: 0.1s; }
+	&:nth-child(2) { animation-delay: 0.2s; }
+	&:nth-child(3) { animation-delay: 0.3s; }
+	&:nth-child(4) { animation-delay: 0.4s; }
+	&:nth-child(5) { animation-delay: 0.5s; }
+	&:nth-child(6) { animation-delay: 0.6s; }
+}
+
+:deep(.floating-add-btn) {
+	animation: dashFadeUp 0.5s ease-out 0.4s both;
+}
+
+:deep(.floating_menu) {
+	animation: dashSlideUp 0.5s ease-out 0.3s both;
+}
+
+@keyframes dashSlideDown {
+	from {
+		opacity: 0;
+		transform: translateY(-30px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes dashFadeUp {
+	from {
+		opacity: 0;
+		transform: translateX(-50%) translateY(20px) scale(0.8);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(-50%) translateY(0) scale(1);
+	}
+}
+
+@keyframes dashSlideUp {
+	from {
+		opacity: 0;
+		transform: translateX(-50%) translateY(40px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(-50%) translateY(0);
+	}
+}
+</style>

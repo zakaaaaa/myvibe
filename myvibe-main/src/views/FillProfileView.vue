@@ -1,59 +1,116 @@
 <template>
 	<section class="auth fill-profile">
+		<!-- Blobs -->
+		<div class="fp-blob fp-blob--1"></div>
+		<div class="fp-blob fp-blob--2"></div>
+		<div class="fp-blob fp-blob--3"></div>
+
 		<div class="container">
-			<h1 class="title text-center mb-4">Fill Your <span class="highlight">Vibe</span></h1>
-			<form autocomplete="off" @submit.prevent="fillProfile">
-				<div class="mb-3">
-					<label class="form-label mb-1">Profile Picture</label>
-					<div class="profile-picture-cage" data-bs-toggle="modal" data-bs-target="#chooseMethodPictureModal">
-						<div class="image"><img :src="this.ava_picture" alt="" /></div>
-						<p>Put up a nice photo! Everyone can see it.</p>
+			<!-- Header -->
+			<div class="fp-header">
+				<h1 class="title">Fill Your <span class="highlight">Vibe</span></h1>
+				<p class="fp-subtitle">Tell us about yourself to get started</p>
+			</div>
+
+			<!-- Avatar Section -->
+			<div class="fp-avatar-section" data-bs-toggle="modal" data-bs-target="#chooseMethodPictureModal">
+				<div class="fp-avatar-ring">
+					<div class="fp-avatar-img">
+						<img :src="this.ava_picture" alt="Avatar" />
+					</div>
+					<div class="fp-avatar-badge">
+						<fa icon="camera" />
 					</div>
 				</div>
-				<div class="mb-3">
-					<label class="form-label">Username</label>
-					<input type="text" class="form-control" v-model="username" placeholder="Add your username here" minlength="3" maxlength="15" pattern="^[a-zA-Z0-9_]+$" required />
-				</div>
-				<div class="mb-3">
-					<label class="form-label">Fullname</label>
-					<input type="text" class="form-control" v-model="name" placeholder="Add your fullname here" required />
-				</div>
-				<div class="mb-3">
-					<label class="form-label">MBTI <span style="font-size: 10px">(optional)</span></label>
-					<VueSelect v-model="mbti_id" :options="optionsMBTI" :isClearable="false" placeholder="Let me know what your MBTI" />
-				</div>
-				<div class="mb-3">
-					<label class="form-label">Zodiac <span style="font-size: 10px">(optional)</span></label>
-					<VueSelect v-model="zodiac_id" :options="optionsZodiac" :isClearable="false" placeholder="Choose your zodiac here!">
-						<template #option="{ option }">
-							{{ option.label }} <small>{{ option.description }}</small>
-						</template>
-					</VueSelect>
-				</div>
-				<div class="mb-3">
-					<label class="form-label">Enthusiast</label>
-					<input type="text" class="form-control" v-model="enthusiast" maxlength="10" placeholder="Let anyone know your hobbies or interest" required />
-				</div>
-				<div class="mb-3">
-					<label class="form-label">Relationship <span style="font-size: 10px">(optional)</span></label>
-					<VueSelect v-model="relationship_id" :options="optionsRelationship" :isClearable="false" placeholder="What about your relationship?">
-						<template #option="{ option }">
-							{{ option.label }} <small>- {{ option.description }}</small>
-						</template>
-					</VueSelect>
-				</div>
-				<div class="d-flex justify-content-center align-items-center flex-column mt-4 gap-2">
-					<div class="form-check" data-bs-toggle="modal" data-bs-target="#termsModal" v-if="showTnc">
-						<input class="form-check-input" type="checkbox" v-model="isChecked" :disabled="!isCheckboxEnabled" />
-						<label class="form-check-label" for="flexCheckDefault">Agree to MyVibe Planner’s Terms of Use</label>
+				<p class="fp-avatar-hint">Tap to add photo</p>
+			</div>
+
+			<!-- Glass Form Card -->
+			<div class="fp-glass-card">
+				<form autocomplete="off" @submit.prevent="fillProfile" class="fp-form">
+					<!-- Username & Fullname row -->
+					<div class="fp-input-row">
+						<div class="glass-input-group">
+							<label class="glass-label">Username</label>
+							<div class="glass-input">
+								<fa icon="at" class="glass-input__icon" />
+								<input type="text" v-model="username" placeholder="e.g. johndoe" minlength="3" maxlength="15" pattern="^[a-zA-Z0-9_]+$" required />
+							</div>
+						</div>
+						<div class="glass-input-group">
+							<label class="glass-label">Full Name</label>
+							<div class="glass-input">
+								<fa icon="user" class="glass-input__icon" />
+								<input type="text" v-model="name" placeholder="e.g. John Doe" required />
+							</div>
+						</div>
 					</div>
-					<button type="submit" class="btn-action" :disabled="!isChecked">
-						<span v-if="!loading" class="me-2">All Set!</span>
-						<span v-else> <fa icon="spinner" class="fa-spin" /> Loading... </span>
-					</button>
-				</div>
-			</form>
+
+					<!-- MBTI & Zodiac row -->
+					<div class="fp-input-row">
+						<div class="glass-input-group">
+							<label class="glass-label">MBTI <span class="optional">optional</span></label>
+							<div class="glass-select">
+								<VueSelect v-model="mbti_id" :options="optionsMBTI" :isClearable="false" placeholder="Your MBTI" />
+							</div>
+						</div>
+						<div class="glass-input-group">
+							<label class="glass-label">Zodiac <span class="optional">optional</span></label>
+							<div class="glass-select">
+								<VueSelect v-model="zodiac_id" :options="optionsZodiac" :isClearable="false" placeholder="Your sign">
+									<template #option="{ option }">
+										{{ option.label }} <small>{{ option.description }}</small>
+									</template>
+								</VueSelect>
+							</div>
+						</div>
+					</div>
+
+					<!-- Enthusiast -->
+					<div class="glass-input-group">
+						<label class="glass-label">Enthusiast</label>
+						<div class="glass-input">
+							<fa icon="heart" class="glass-input__icon" />
+							<input type="text" v-model="enthusiast" maxlength="10" placeholder="e.g. Music, Art, Film" required />
+						</div>
+					</div>
+
+					<!-- Relationship -->
+					<div class="glass-input-group">
+						<label class="glass-label">Relationship <span class="optional">optional</span></label>
+						<div class="glass-select">
+							<VueSelect v-model="relationship_id" :options="optionsRelationship" :isClearable="false" placeholder="Your status">
+								<template #option="{ option }">
+									{{ option.label }} <small>- {{ option.description }}</small>
+								</template>
+							</VueSelect>
+						</div>
+					</div>
+
+					<!-- Actions -->
+					<div class="fp-actions">
+						<div class="glass-checkbox" data-bs-toggle="modal" data-bs-target="#termsModal" v-if="showTnc">
+							<input class="form-check-input" type="checkbox" v-model="isChecked" :disabled="!isCheckboxEnabled" />
+							<label>Agree to MyVibe's <span>Terms of Use</span></label>
+						</div>
+
+						<div class="btn-center">
+							<button type="submit" class="btn-action btn-allset" :disabled="!isChecked">
+								<span v-if="!loading">
+									All Set!
+									<fa icon="check" class="ms-2" />
+								</span>
+								<span v-else>
+									<fa icon="spinner" class="fa-spin" /> Loading...
+								</span>
+							</button>
+						</div>
+					</div>
+				</form>
+			</div>
 		</div>
+
+		<!-- Choose Picture Modal -->
 		<div class="modal pt-5 fade" id="chooseMethodPictureModal" tabindex="-1" aria-labelledby="chooseMethodPictureModalLabel" aria-hidden="true">
 			<div class="modal-dialog modal-dialog-centered">
 				<div class="modal-content">
@@ -64,12 +121,14 @@
 						<ul class="btn-list">
 							<li>
 								<button @click="chooseFromGallery">
-									<span><fa icon="image" class="me-2" /> Choose From Gallery</span> <span class="icon"><fa icon="angle-right" /></span>
+									<span><fa icon="image" class="me-2" /> Choose From Gallery</span>
+									<span class="icon"><fa icon="angle-right" /></span>
 								</button>
 							</li>
 							<li>
 								<button @click="takePhoto">
-									<span><fa icon="camera-retro" class="me-2" /> Take a Photo</span> <span class="icon"><fa icon="angle-right" /></span>
+									<span><fa icon="camera-retro" class="me-2" /> Take a Photo</span>
+									<span class="icon"><fa icon="angle-right" /></span>
 								</button>
 							</li>
 						</ul>
@@ -80,6 +139,8 @@
 				</div>
 			</div>
 		</div>
+
+		<!-- Notification Modal -->
 		<span data-bs-toggle="modal" data-bs-target="#notifModal" ref="notifModalBtn"></span>
 		<div class="modal fade" id="notifModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="notifModalLabel" aria-hidden="true">
 			<div class="modal-dialog modal-dialog-centered">
@@ -101,50 +162,24 @@
 				</div>
 			</div>
 		</div>
+
+		<!-- Terms Modal -->
 		<div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
 			<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
 				<div class="modal-content">
 					<div class="modal-body" style="height: 50vh" ref="termsContent" @scroll="checkScroll">
 						<h2>General Terms</h2>
 						<p>Updated at January 18th, 2025</p>
-						<p>By accessing and placing an order with MyVibe, you confirm that you are in agreement with and bound by the terms of service contained in the Terms & Conditions outlined below. These terms apply to the entire website and any email or other type of communication between you and MyVibe.</p>
-						<p>Under no circumstances shall MyVibe team be liable for any direct, indirect, special, incidental or consequential damages, including, but not limited to, loss of data or profit, arising out of the use, or the inability to use, the materials on this site, even if MyVibe team or an authorized representative has been advised of the possibility of such damages. If your use of materials from this site results in the need for servicing, repair or correction of equipment or data, you assume any costs thereof.</p>
-						<p>MyVibe will not be responsible for any outcome that may occur during the course of usage of our resources. We reserve the rights to change prices and revise the resources usage policy in any moment.</p>
-
+						<p>By accessing and placing an order with MyVibe, you confirm that you are in agreement with and bound by the terms of service contained in the Terms & Conditions outlined below.</p>
+						<p>Under no circumstances shall MyVibe team be liable for any direct, indirect, special, incidental or consequential damages.</p>
 						<h2>License</h2>
 						<p>MyVibe grants you a revocable, non-exclusive, non-transferable, limited license to download, install and use the app strictly in accordance with the terms of this Agreement.</p>
-						<p>These Terms & Conditions are a contract between you and MyVibe (referred to in these Terms & Conditions as "MyVibe", "us", "we" or "our"), the provider of the MyVibe website and the services accessible from the MyVibe website (which are collectively referred to in these Terms & Conditions as the "MyVibe Service").</p>
-						<p>You are agreeing to be bound by these Terms & Conditions. If you do not agree to these Terms & Conditions, please do not use the MyVibe Service. In these Terms & Conditions, "you" refers both to you as an individual and to the entity you represent. If you violate any of these Terms & Conditions, we reserve the right to cancel your account or block access to your account without notice.</p>
-
-						<h2>Definitions and Key Terms</h2>
-						<p>To help explain things as clearly as possible in this Terms & Conditions, every time any of these terms are referenced, are strictly defined as:</p>
-						<ul>
-							<li><strong>Cookie:</strong> A small amount of data generated by a website and saved by your web browser. It is used to identify your browser, provide analytics, remember information about you such as your language preference or login information.</li>
-							<li><strong>Company:</strong> When this terms mention “Company,” “we,” “us,” or “our,” it refers to MyVibe, that is responsible for your information under this Terms & Conditions.</li>
-							<li><strong>Country:</strong> Where MyVibe or the owners/founders of MyVibe are based, in this case is Indonesia</li>
-							<li><strong>Device:</strong> Any internet connected device such as a phone, tablet, computer or any other device that can be used to visit MyVibe and use the services.</li>
-							<li><strong>Service:</strong> Refers to the service provided by MyVibe as described in the relative terms (if available) and on this platform.</li>
-							<li><strong>Third-party service:</strong> Refers to advertisers, contest sponsors, promotional and marketing partners, and others who provide our content or whose products or services we think may interest you.</li>
-							<li><strong>App/Application:</strong> MyVibe app, refers to the SOFTWARE PRODUCT identified above.</li>
-							<li><strong>You:</strong> A person or entity that is registered with MyVibe to use the Services.</li>
-						</ul>
-
 						<h2>Restrictions</h2>
-						<p>You agree not to, and will not permit others to:</p>
 						<ul>
-							<li>License, sell, rent, lease, assign, distribute, transmit, host, outsource, disclose or otherwise commercially exploit the app or make the platform available to any third party.</li>
+							<li>License, sell, rent, lease, assign, distribute, transmit, host, outsource, disclose or otherwise commercially exploit the app.</li>
 							<li>Modify, make derivative works of, disassemble, decrypt, reverse compile or reverse engineer any part of the app.</li>
-							<li>Remove, alter or obscure any proprietary notice (including any notice of copyright or trademark) of MyVibe or its affiliates, partners, suppliers or the licensors of the app.</li>
 						</ul>
-
-						<h2>Return and Refund Policy</h2>
-						<p>If you are not satisfied with any product or service, contact us to discuss your concerns.</p>
-
-						<h2>Your Suggestions</h2>
-						<p>Suggestions provided to MyVibe remain the sole property of MyVibe.</p>
-
 						<h2>Contact Us</h2>
-						<p>If you have any questions:</p>
 						<ul>
 							<li>Email: <a href="mailto:lukersaintfeller@gmail.com">lukersaintfeller@gmail.com</a></li>
 							<li>Phone: +6282278709681</li>
@@ -161,22 +196,14 @@
 
 <script>
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
-
 import VueSelect from 'vue3-select-component';
-
-import 'bootstrap/dist/js/bootstrap.bundle.min.js';
-
 import authService from '@/services/authService';
-
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-
 import avatar from '@/assets/avatar.png';
 
 export default {
 	name: 'FillProfileView',
-	components: {
-		VueSelect
-	},
+	components: { VueSelect },
 	data() {
 		return {
 			optionsMBTI: [],
@@ -235,12 +262,8 @@ export default {
 				}));
 			} catch (error) {
 				this.message = error.response.data.message;
-				this.showLink = false;
 				this.showDismiss = true;
-				this.linkTo = '';
 				this.showNotifModal();
-			} finally {
-				this.loading = false;
 			}
 		},
 		async getOptionsZodiac() {
@@ -254,12 +277,8 @@ export default {
 				}));
 			} catch (error) {
 				this.message = error.response.data.message;
-				this.showLink = false;
 				this.showDismiss = true;
-				this.linkTo = '';
 				this.showNotifModal();
-			} finally {
-				this.loading = false;
 			}
 		},
 		async getOptionsRelationship() {
@@ -273,12 +292,8 @@ export default {
 				}));
 			} catch (error) {
 				this.message = error.response.data.message;
-				this.showLink = false;
 				this.showDismiss = true;
-				this.linkTo = '';
 				this.showNotifModal();
-			} finally {
-				this.loading = false;
 			}
 		},
 		async fillProfile() {
@@ -289,7 +304,6 @@ export default {
 				this.message = 'Please fill all form & picture';
 				this.showLink = false;
 				this.showDismiss = true;
-				this.linkTo = '';
 				this.showNotifModal();
 			} else {
 				this.loading = true;
@@ -300,17 +314,11 @@ export default {
 					formData.append('username', this.username);
 					formData.append('name', this.name);
 					formData.append('enthusiast', this.enthusiast);
-					if (this.mbti_id) {
-						formData.append('mbti_id', this.mbti_id);
-					}
-					if (this.zodiac_id) {
-						formData.append('zodiac_id', this.zodiac_id);
-					}
-					if (this.relationship_id) {
-						formData.append('relationship_id', this.relationship_id);
-					}
+					if (this.mbti_id) formData.append('mbti_id', this.mbti_id);
+					if (this.zodiac_id) formData.append('zodiac_id', this.zodiac_id);
+					if (this.relationship_id) formData.append('relationship_id', this.relationship_id);
 					await authService.profile_put(formData);
-					this.$router.push('/dashboard');
+					this.$router.push('/welcome');
 				} catch (error) {
 					this.statusNotif = 'failed';
 					this.titleNotif = 'Validation';
@@ -328,7 +336,6 @@ export default {
 					}
 					this.showLink = false;
 					this.showDismiss = true;
-					this.linkTo = '';
 					this.showNotifModal();
 				} finally {
 					this.loading = false;
@@ -370,8 +377,7 @@ export default {
 		async convertUriToFile(uri, fileName) {
 			const response = await fetch(uri);
 			const blob = await response.blob();
-			const file = new File([blob], fileName, { type: blob.type });
-			return file;
+			return new File([blob], fileName, { type: blob.type });
 		},
 		checkScroll() {
 			const termsContent = this.$refs.termsContent;
@@ -386,9 +392,7 @@ export default {
 		},
 		clickLink() {
 			var backdrop = document.querySelector('.modal-backdrop');
-			if (backdrop) {
-				backdrop.remove();
-			}
+			if (backdrop) { backdrop.remove(); }
 		},
 		showNotifModal() {
 			this.$refs.notifModalBtn.click();
@@ -396,3 +400,477 @@ export default {
 	}
 };
 </script>
+
+<style lang="scss" scoped>
+@import '@/assets/scss/color.scss';
+
+// === BLOBS ===
+.fp-blob {
+	position: absolute;
+	filter: blur(50px);
+	pointer-events: none;
+	z-index: 0;
+}
+
+.fp-blob--1 {
+	top: -6%;
+	left: -12%;
+	width: min(300px, 68vw);
+	height: min(300px, 68vw);
+	background: radial-gradient(circle, rgba($purple, 0.3) 0%, rgba(#6c5ce7, 0.1) 40%, transparent 70%);
+	border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+	animation: fpBlobMorph1 12s ease-in-out infinite;
+}
+
+.fp-blob--2 {
+	bottom: 3%;
+	right: -10%;
+	width: min(260px, 58vw);
+	height: min(260px, 58vw);
+	background: radial-gradient(circle, rgba(#4a3adf, 0.25) 0%, rgba($purple, 0.08) 40%, transparent 70%);
+	border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+	animation: fpBlobMorph2 15s ease-in-out infinite;
+}
+
+.fp-blob--3 {
+	top: 40%;
+	left: 50%;
+	transform: translateX(-50%);
+	width: min(320px, 72vw);
+	height: min(160px, 36vw);
+	background: radial-gradient(ellipse, rgba($purple, 0.12) 0%, transparent 70%);
+	border-radius: 50%;
+	animation: fpBlobFloat 9s ease-in-out infinite;
+}
+
+@keyframes fpBlobMorph1 {
+	0%, 100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; transform: translate(0, 0) rotate(0deg); }
+	50% { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; transform: translate(12px, 16px) rotate(40deg); }
+}
+@keyframes fpBlobMorph2 {
+	0%, 100% { border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; transform: translate(0, 0) rotate(0deg); }
+	50% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; transform: translate(-14px, -12px) rotate(-40deg); }
+}
+@keyframes fpBlobFloat {
+	0%, 100% { transform: translateX(-50%) translateY(0) scale(1); opacity: 0.12; }
+	50% { transform: translateX(-50%) translateY(-16px) scale(1.05); opacity: 0.2; }
+}
+
+// === HEADER ===
+.fp-header {
+	text-align: center;
+	margin-bottom: 20px;
+	animation: fpSlideIn 0.6s ease-out both;
+}
+
+.fp-subtitle {
+	color: rgba($white1, 0.38);
+	font-size: 13px;
+	margin-top: 4px;
+}
+
+// === AVATAR SECTION ===
+.fp-avatar-section {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	margin-bottom: 20px;
+	cursor: pointer;
+	animation: fpSlideIn 0.6s ease-out 0.08s both;
+}
+
+.fp-avatar-ring {
+	width: 96px;
+	height: 96px;
+	border-radius: 50%;
+	position: relative;
+	background: rgba($white, 0.04);
+	backdrop-filter: blur(16px);
+	-webkit-backdrop-filter: blur(16px);
+	border: 2px solid rgba($purple, 0.2);
+	box-shadow: 0 6px 24px rgba($purple, 0.1), inset 0 1px 0 rgba($white, 0.06);
+	transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+	padding: 4px;
+
+	// Outer pulsing ring
+	&::before {
+		content: '';
+		position: absolute;
+		inset: -6px;
+		border-radius: 50%;
+		border: 1px solid rgba($purple, 0.1);
+		animation: fpRingPulse 3s ease-in-out infinite;
+	}
+
+	// Glass reflection
+	&::after {
+		content: '';
+		position: absolute;
+		top: 3px;
+		left: 18%;
+		right: 18%;
+		height: 30%;
+		background: linear-gradient(180deg, rgba($white, 0.12) 0%, transparent 100%);
+		border-radius: 50%;
+		pointer-events: none;
+	}
+
+	&:hover {
+		border-color: rgba($purple, 0.4);
+		transform: scale(1.05);
+		box-shadow: 0 8px 30px rgba($purple, 0.15), inset 0 1px 0 rgba($white, 0.08);
+	}
+}
+
+.fp-avatar-img {
+	width: 100%;
+	height: 100%;
+	border-radius: 50%;
+	overflow: hidden;
+	background: rgba(#1e1e21, 0.8);
+
+	img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+}
+
+.fp-avatar-badge {
+	position: absolute;
+	bottom: 0;
+	right: 0;
+	width: 30px;
+	height: 30px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 12px;
+	color: $white;
+	background: rgba($purple, 0.7);
+	backdrop-filter: blur(10px);
+	-webkit-backdrop-filter: blur(10px);
+	border: 2px solid rgba($background, 0.8);
+	box-shadow: 0 2px 8px rgba($purple, 0.3);
+}
+
+.fp-avatar-hint {
+	color: rgba($white1, 0.35);
+	font-size: 11px;
+	margin-top: 8px;
+}
+
+@keyframes fpRingPulse {
+	0%, 100% { opacity: 0.3; transform: scale(1); }
+	50% { opacity: 0.7; transform: scale(1.04); }
+}
+
+// === GLASS CARD ===
+.fp-glass-card {
+	background: rgba($white, 0.03);
+	backdrop-filter: blur(20px);
+	-webkit-backdrop-filter: blur(20px);
+	border: 1px solid rgba($white, 0.07);
+	border-radius: 22px;
+	padding: 22px 18px 18px;
+	position: relative;
+	z-index: 1;
+	animation: fpSlideIn 0.6s ease-out 0.15s both;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba($white, 0.05);
+
+	&::before {
+		content: '';
+		position: absolute;
+		top: 0; left: 0; right: 0;
+		height: 40%;
+		background: linear-gradient(180deg, rgba($white, 0.04) 0%, transparent 100%);
+		border-radius: 22px 22px 0 0;
+		pointer-events: none;
+	}
+}
+
+.fp-form {
+	position: relative;
+	z-index: 1;
+}
+
+// === INPUT GROUPS ===
+.glass-input-group {
+	margin-bottom: 14px;
+	animation: fpSlideIn 0.5s ease-out both;
+
+	@for $i from 1 through 8 {
+		&:nth-child(#{$i}) {
+			animation-delay: #{0.05 * $i + 0.15}s;
+		}
+	}
+}
+
+.fp-input-row {
+	display: flex;
+	gap: 10px;
+
+	.glass-input-group {
+		flex: 1;
+		min-width: 0;
+	}
+}
+
+.glass-label {
+	display: block;
+	font-size: 12px;
+	font-weight: 500;
+	color: rgba($white1, 0.5);
+	margin-bottom: 5px;
+	padding-left: 4px;
+	letter-spacing: 0.3px;
+
+	.optional {
+		font-size: 10px;
+		font-weight: 400;
+		color: rgba($white1, 0.3);
+		font-style: italic;
+	}
+}
+
+.glass-input {
+	display: flex;
+	align-items: center;
+	background: rgba($white, 0.035);
+	backdrop-filter: blur(16px);
+	-webkit-backdrop-filter: blur(16px);
+	border: 1px solid rgba($white, 0.07);
+	border-radius: 14px;
+	padding: 0 14px;
+	min-height: 46px;
+	transition: all 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+	position: relative;
+	box-shadow: inset 0 1px 0 rgba($white, 0.04), 0 2px 10px rgba(0, 0, 0, 0.08);
+
+	&::before {
+		content: '';
+		position: absolute;
+		top: 0; left: 0; right: 0;
+		height: 50%;
+		background: linear-gradient(180deg, rgba($white, 0.025) 0%, transparent 100%);
+		border-radius: 14px 14px 0 0;
+		pointer-events: none;
+	}
+
+	&:focus-within {
+		border-color: rgba($purple, 0.35);
+		background: rgba($white, 0.05);
+		box-shadow: 0 0 0 3px rgba($purple, 0.06), inset 0 1px 0 rgba($white, 0.06), 0 4px 20px rgba(0, 0, 0, 0.12);
+		transform: translateY(-1px);
+		.glass-input__icon { color: $purple; }
+	}
+
+	&__icon {
+		color: rgba($white, 0.28);
+		font-size: 13px;
+		margin-right: 10px;
+		transition: all 0.3s ease;
+		flex-shrink: 0;
+	}
+
+	input {
+		flex: 1;
+		background: transparent;
+		border: none;
+		outline: none;
+		color: $white1;
+		font-size: 14px;
+		font-family: inherit;
+		min-width: 0;
+		padding: 0;
+
+		&::placeholder {
+			color: rgba($white, 0.22);
+			font-size: 12px;
+			font-weight: 300;
+		}
+	}
+}
+
+// === GLASS SELECT (VueSelect wrapper) ===
+.glass-select {
+	:deep(.vue-select) {
+		.control {
+			border: 1px solid rgba($white, 0.07) !important;
+			min-height: 46px;
+			background: rgba($white, 0.035) !important;
+			backdrop-filter: blur(16px);
+			-webkit-backdrop-filter: blur(16px);
+			color: $white1;
+			outline: none !important;
+			box-shadow: inset 0 1px 0 rgba($white, 0.04), 0 2px 10px rgba(0, 0, 0, 0.08) !important;
+			border-radius: 14px !important;
+			transition: all 0.3s ease;
+
+			&:focus-within {
+				border-color: rgba($purple, 0.35) !important;
+				box-shadow: 0 0 0 3px rgba($purple, 0.06), 0 4px 20px rgba(0, 0, 0, 0.12) !important;
+			}
+
+			.value-container {
+				.single-value {
+					color: $white1;
+					font-size: 13px;
+					display: -webkit-box;
+					max-width: 90%;
+					white-space: pre-wrap;
+					word-break: keep-all;
+					text-overflow: ellipsis;
+					overflow: hidden;
+					-webkit-line-clamp: 1;
+					-webkit-box-orient: vertical;
+				}
+
+				.search-input {
+					color: $white1;
+					font-size: 13px;
+					&::placeholder {
+						color: rgba($white, 0.22);
+						font-size: 12px;
+						font-style: italic;
+					}
+				}
+			}
+
+			.indicators-container {
+				.dropdown-icon {
+					color: rgba($white, 0.3);
+				}
+			}
+		}
+
+		.menu {
+			border: 1px solid rgba($white, 0.08) !important;
+			background: rgba(30, 30, 31, 0.92) !important;
+			backdrop-filter: blur(20px);
+			-webkit-backdrop-filter: blur(20px);
+			box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba($white, 0.05) !important;
+			border-radius: 12px !important;
+
+			.menu-option {
+				display: flex;
+				align-items: baseline;
+				flex-wrap: wrap;
+				background: transparent;
+				color: $white1;
+				border-bottom: 1px solid rgba($white, 0.05);
+				transition: background 0.2s ease;
+				font-size: 13px;
+
+				small {
+					font-size: 10px;
+					font-weight: 300;
+					margin-left: 5px;
+					color: rgba($white, 0.4);
+				}
+
+				&:hover { background: rgba($purple, 0.1); }
+				&:last-child { border: none; }
+			}
+		}
+	}
+}
+
+// === ACTIONS ===
+.fp-actions {
+	margin-top: 18px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 14px;
+	animation: fpSlideIn 0.6s ease-out 0.5s both;
+}
+
+.glass-checkbox {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	cursor: pointer;
+	font-size: 12px;
+	color: rgba($white1, 0.55);
+	padding: 8px 16px;
+	border-radius: 12px;
+	background: rgba($white, 0.02);
+	border: 1px solid rgba($white, 0.05);
+	transition: all 0.3s ease;
+
+	&:hover {
+		border-color: rgba($purple, 0.15);
+		background: rgba($purple, 0.04);
+	}
+
+	.form-check-input {
+		width: 18px;
+		height: 18px;
+		background: rgba($background_second, 0.6);
+		border: 1px solid rgba($white, 0.15);
+		border-radius: 5px;
+		flex-shrink: 0;
+		&:checked { background-color: $purple; border-color: $purple; }
+	}
+
+	label { cursor: pointer; }
+	span { color: $purple; text-decoration: underline; font-weight: 500; }
+}
+
+.btn-center {
+	display: flex;
+	justify-content: center;
+	width: 100%;
+}
+
+.btn-allset {
+	position: relative;
+	overflow: hidden;
+	width: 100%;
+	max-width: 350px;
+	background: linear-gradient(135deg, rgba($purple, 0.65) 0%, rgba($purple, 0.85) 50%, rgba(#5a4dd6, 0.75) 100%) !important;
+	backdrop-filter: blur(20px);
+	-webkit-backdrop-filter: blur(20px);
+	border: 1px solid rgba($white, 0.12) !important;
+	box-shadow: 0 8px 28px rgba($purple, 0.2), inset 0 1px 0 rgba($white, 0.18);
+	transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+
+	&::after {
+		content: '';
+		position: absolute;
+		top: 0; left: 0; right: 0;
+		height: 50%;
+		background: linear-gradient(180deg, rgba($white, 0.12) 0%, transparent 100%);
+		border-radius: 30px 30px 0 0;
+		pointer-events: none;
+	}
+
+	&::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: -100%;
+		width: 100%;
+		height: 100%;
+		background: linear-gradient(90deg, transparent, rgba($white, 0.12), transparent);
+		transition: left 0.6s ease;
+		z-index: 1;
+	}
+
+	&:not(:disabled):hover {
+		transform: translateY(-3px);
+		box-shadow: 0 14px 40px rgba($purple, 0.3), inset 0 1px 0 rgba($white, 0.22), 0 0 25px rgba($purple, 0.12);
+		&::before { left: 100%; }
+	}
+
+	&:not(:disabled):active { transform: translateY(-1px) scale(0.98); }
+	&:disabled { opacity: 0.35; cursor: not-allowed; }
+}
+
+@keyframes fpSlideIn {
+	from { opacity: 0; transform: translateY(20px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+</style>
