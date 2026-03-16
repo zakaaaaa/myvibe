@@ -350,7 +350,7 @@ export default {
 		async copyMyVibe() {
 			try {
 				await Clipboard.write({
-					string: 'https://myvibeapp.co/' + this.$route.params.username
+					string: 'https://myvibeapp.site/' + this.$route.params.username
 				});
 				this.statusNotif = 'success';
 				this.titleNotif = 'Share Your';

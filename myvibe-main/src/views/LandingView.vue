@@ -211,7 +211,7 @@ export default {
 			try {
 				const response = await SignInWithApple.authorize({
 					clientId: 'co.myvibe.app',
-					redirectURI: 'https://myvibeapp.co/dashboard',
+					redirectURI: 'https://myvibeapp.site/dashboard',
 					scopes: 'email name'
 				});
 				const responseNew = {
