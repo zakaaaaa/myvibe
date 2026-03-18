@@ -46,7 +46,7 @@ Route::prefix('auth')->group(function () {
     Route::post('login/google', [GoogleAuthController::class, 'registerGoogle']);
 });
 Route::get('/proxy', [\App\Http\Controllers\Api\ProxyController::class, 'proxy']);
-Route::middleware(['auth:sanctum', 'verified'])->group(function () {
+Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/profile', function (Request $request) {
         return $request->user();
     });

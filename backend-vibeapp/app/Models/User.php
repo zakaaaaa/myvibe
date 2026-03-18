@@ -2,25 +2,17 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-
 use App\Notifications\ResetPasswordNotification;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
 
-class User extends Authenticatable implements MustVerifyEmail
+class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
     protected $fillable = [
         'name',
         'username',
@@ -37,29 +29,14 @@ class User extends Authenticatable implements MustVerifyEmail
         'user_apple_id'
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var array<int, string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
-
-    // public function sendPasswordResetNotification($token)
-    // {
-    //     $this->notify(new ResetPasswordNotification($token));
-    // }
 
     public function mbti()
     {
@@ -81,13 +58,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Vibe::class);
     }
 
-    // Users this user is following
     public function following()
     {
         return $this->belongsToMany(User::class, 'follows', 'follower_id', 'following_id');
     }
 
-    // Users following this user
     public function followers()
     {
         return $this->belongsToMany(User::class, 'follows', 'following_id', 'follower_id');
@@ -117,10 +92,6 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return DB::table('friendships')
             ->where('status', 'accepted')
-            // ->where(function ($query) use ($friendId) {
-            //     // $query->where('user_id_1', $this->id);
-            //         // ->where('user_id_2', $friendId);
-            // })
             ->where(function ($query) use ($friendId) {
                 $query->where('user_id_1', $friendId)
                     ->where('user_id_2', $this->id);
