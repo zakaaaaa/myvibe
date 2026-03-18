@@ -36,7 +36,7 @@
 					<div class="badge glass-badge-name">{{ this.name }}</div>
 				</div>
 
-				<div class="comment glass-comment anim-comment">
+				<div class="comment anim-comment">
 					{{ this.data.comment }}
 				</div>
 			</div>

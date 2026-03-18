@@ -30,10 +30,10 @@ section.vibes {
 
     .card-vibes {
         position: relative;
-        width: 85%;
+        width: 100%;
         background: $background;
         z-index: 2;
-        padding: 20px;
+        padding: 0px;
         border-radius: 45px;
         box-shadow:
             0px 2.8px 2.2px rgba(0, 0, 0, 0.02),
@@ -51,7 +51,7 @@ section.vibes {
             background-size: cover;
             background-repeat: no-repeat;
             overflow: hidden;
-            border-radius: 30px;
+            border-radius: 45px;
             position: relative;
             outline: 1px solid $background;
             box-shadow: inset 0px 0px 0px .5px $background;
