@@ -162,7 +162,7 @@ export default {
 		async getConversation(id) {
 			try {
 				const response = await dashboardService.getDetailChatMessage(id);
-				this.messages = response.data;
+				this.messages = response.data.map(m => ({ ...m, replyTo: m.reply_to_text || null }));
 			} catch (error) {
 				console.error('Error fetching conversation:', error);
 			} finally {
@@ -179,6 +179,7 @@ export default {
 			if (!this.chatQuery.trim()) return;
 			const msgText = this.chatQuery;
 			const replyText = this.replyingTo ? this.replyingTo.message_text : null;
+			const replyId = this.replyingTo ? this.replyingTo.id : null;
 
 			// Optimistic add
 			const tempMsg = {
@@ -195,7 +196,12 @@ export default {
 			this.scrollToLastMessage();
 
 			try {
-				const params = { receiver_id: id, message: msgText };
+				const params = {
+					receiver_id: id,
+					message: msgText,
+					reply_to_id: replyId,
+					reply_to_text: replyText
+				};
 				await dashboardService.postMessage(params);
 				this.getConversation(id);
 			} catch (error) {

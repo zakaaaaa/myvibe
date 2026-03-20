@@ -13,6 +13,8 @@ class Messages extends Model
         'sender_id',
         'receiver_id',
         'message_text',
+        'reply_to_id',
+        'reply_to_text',
     ];
 
     public function sender()

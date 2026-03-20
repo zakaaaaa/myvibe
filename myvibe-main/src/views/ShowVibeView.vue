@@ -1,9 +1,6 @@
 <template>
 	<div class="showvibe-root">
 		<!-- Morphing Blobs -->
-		<div class="sv-blob sv-blob--1"></div>
-		<div class="sv-blob sv-blob--2"></div>
-		<div class="sv-blob sv-blob--3"></div>
 
 		<div class="back-floating-glass" @click="goBack()">
 			<fa icon="arrow-left-long" class="text-white" />
@@ -310,65 +307,6 @@ export default {
 	position: relative;
 	min-height: 100vh;
 	overflow: hidden;
-}
-
-// === MORPHING BLOBS ===
-.sv-blob {
-	position: fixed;
-	filter: blur(55px);
-	pointer-events: none;
-	z-index: 0;
-	border-radius: 50%;
-}
-
-.sv-blob--1 {
-	top: -8%;
-	right: -12%;
-	width: min(240px, 55vw);
-	height: min(240px, 55vw);
-	background: radial-gradient(circle, rgba($purple, 0.25) 0%, rgba(#6c5ce7, 0.08) 40%, transparent 70%);
-	animation: svBlobMorph1 8s ease-in-out infinite, svBlobFloat1 6s ease-in-out infinite;
-}
-
-.sv-blob--2 {
-	bottom: 10%;
-	left: -15%;
-	width: min(200px, 50vw);
-	height: min(200px, 50vw);
-	background: radial-gradient(circle, rgba(#a29bfe, 0.18) 0%, rgba($purple, 0.06) 50%, transparent 70%);
-	animation: svBlobMorph2 10s ease-in-out infinite, svBlobFloat2 7s ease-in-out infinite;
-}
-
-.sv-blob--3 {
-	top: 40%;
-	right: -10%;
-	width: min(160px, 40vw);
-	height: min(160px, 40vw);
-	background: radial-gradient(circle, rgba(#74b9ff, 0.12) 0%, rgba($purple, 0.04) 50%, transparent 70%);
-	animation: svBlobMorph1 12s ease-in-out infinite reverse, svBlobFloat1 9s ease-in-out infinite reverse;
-}
-
-@keyframes svBlobMorph1 {
-	0%, 100% { border-radius: 42% 58% 70% 30% / 45% 45% 55% 55%; }
-	25% { border-radius: 50% 50% 35% 65% / 60% 40% 60% 40%; }
-	50% { border-radius: 35% 65% 50% 50% / 40% 55% 45% 60%; }
-	75% { border-radius: 60% 40% 45% 55% / 50% 60% 40% 50%; }
-}
-
-@keyframes svBlobMorph2 {
-	0%, 100% { border-radius: 55% 45% 40% 60% / 50% 35% 65% 50%; }
-	33% { border-radius: 40% 60% 55% 45% / 65% 50% 50% 35%; }
-	66% { border-radius: 50% 50% 60% 40% / 40% 60% 40% 60%; }
-}
-
-@keyframes svBlobFloat1 {
-	0%, 100% { transform: translate(0, 0); }
-	50% { transform: translate(-15px, 20px); }
-}
-
-@keyframes svBlobFloat2 {
-	0%, 100% { transform: translate(0, 0); }
-	50% { transform: translate(20px, -15px); }
 }
 
 // === GLASS BACK BUTTON ===

@@ -154,7 +154,7 @@ section.dashboard {
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba($white, 0.06);
-            border-radius: 25px;
+            border-radius: 30px;
             margin-bottom: 20px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba($white, 0.04);
             position: relative;
@@ -194,7 +194,7 @@ section.dashboard {
                 border-radius: 25px;
 
                 li {
-                    background-color: $grey1;
+                    background-color: transparent;
                     aspect-ratio: 1/1;
                     width: 32%;
                     background-position: center center;
@@ -204,7 +204,7 @@ section.dashboard {
                     border-radius: 18px;
                     position: relative;
                     margin-right: 10px;
-                    border: 1px solid rgba($white, 0.06);
+                    border: none;
                     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
                     transition: all 0.3s ease;
                     cursor: pointer;
@@ -216,12 +216,13 @@ section.dashboard {
 
                     &:before {
                         position: absolute;
-                        bottom: -3px;
-                        left: -3px;
-                        width: calc(100% + 6px);
-                        height: calc(40% + 6px);
+                        bottom: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 55%;
                         content: '';
-                        background: linear-gradient(to top, rgba($background, 0.9) 0%, rgba(255, 255, 255, 0) 100%);
+                        background: linear-gradient(to top, rgba($background, 1) 0%, rgba($background, 0.7) 40%, transparent 100%);
+                        border-radius: inherit;
                     }
 
                     .caption {
@@ -412,14 +413,14 @@ section.dashboard {
 
                     .content {
                         position: relative;
-                        background-color: $purple;
+                        background-color: $background;
                         aspect-ratio: 1/1;
                         width: 100%;
                         background-position: center center;
                         background-size: cover;
                         background-repeat: no-repeat;
                         overflow: hidden;
-                        border-radius: 25px;
+                        border-radius: 35px;
                         border: 1px solid rgba($white, 0.06);
                         box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
                         transition: all 0.3s ease;
@@ -428,17 +429,15 @@ section.dashboard {
                             transform: translateY(-2px);
                             box-shadow: 0 10px 32px rgba(0, 0, 0, 0.3);
                         }
-
                         &.twothree { aspect-ratio: 2/3; }
-
                         &:before {
                             position: absolute;
-                            bottom: -3px;
-                            left: -3px;
-                            width: calc(100% + 6px);
-                            height: calc(40% + 6px);
+                            bottom: 0;
+                            left: 0;
+                            width: 100%;
+                            height: 55%;
                             content: '';
-                            background: linear-gradient(to top, rgba($background, 1) 0%, rgba(255, 255, 255, 0) 100%);
+                            background: linear-gradient(to top, rgba($background, 1) 0%, rgba($background, 0.7) 40%, transparent 100%);
                         }
 
                         .report {
@@ -599,14 +598,14 @@ section.dashboard {
 
                 .content {
                     position: relative;
-                    background-color: $purple;
+                    background-color: $background;
                     aspect-ratio: 1/1;
                     width: 100%;
                     background-position: center center;
                     background-size: cover;
                     background-repeat: no-repeat;
                     overflow: hidden;
-                    border-radius: 25px;
+                    border-radius: 30px;
                     border: 1px solid rgba($white, 0.06);
                     box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
 
@@ -614,12 +613,12 @@ section.dashboard {
 
                     &:before {
                         position: absolute;
-                        bottom: -3px;
-                        left: -3px;
-                        width: calc(100% + 6px);
-                        height: calc(40% + 6px);
+                        bottom: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 55%;
                         content: '';
-                        background: linear-gradient(to top, rgba($background, 1) 0%, rgba(255, 255, 255, 0) 100%);
+                        background: linear-gradient(to top, rgba($background, 1) 0%, rgba($background, 0.7) 40%, transparent 100%);
                     }
 
                     .bottom {
@@ -679,14 +678,14 @@ section.add {
             display: block;
 
             .content {
-                background-color: $purple;
+                background-color: $background;
                 aspect-ratio: 1/1;
                 width: 100%;
                 background-position: center center;
                 background-size: cover;
                 background-repeat: no-repeat;
                 overflow: hidden;
-                border-radius: 20px;
+                border-radius: 30px;
                 position: relative;
                 border: 1px solid rgba($white, 0.06);
                 box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
@@ -699,12 +698,12 @@ section.add {
 
                 &:before {
                     position: absolute;
-                    bottom: -3px;
-                    left: -3px;
-                    width: calc(100% + 6px);
-                    height: calc(40% + 6px);
+                    bottom: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 55%;
                     content: '';
-                    background: linear-gradient(to top, rgba($background, 1) 0%, rgba(255, 255, 255, 0) 100%);
+                    background: linear-gradient(to top, rgba($background, 1) 0%, rgba($background, 0.7) 40%, transparent 100%);
                 }
 
                 h1 {
@@ -772,7 +771,7 @@ section.add {
 
         li {
             .content {
-                background-color: $purple;
+                background-color: $background;
                 aspect-ratio: 7/3;
                 width: 100%;
                 background-position: center center;
@@ -791,12 +790,12 @@ section.add {
 
                 &:before {
                     position: absolute;
-                    bottom: -3px;
-                    left: -3px;
-                    width: calc(40% + 6px);
-                    height: calc(100% + 6px);
+                    bottom: 0;
+                    left: 0;
+                    width: 40%;
+                    height: 100%;
                     content: '';
-                    background: linear-gradient(to right, rgba($background, 0.8) 0%, rgba(255, 255, 255, 0) 100%);
+                    background: linear-gradient(to right, rgba($background, 0.8) 0%, transparent 100%);
                 }
 
                 .text {
@@ -890,7 +889,7 @@ section.add {
     }
 
     .comment-content {
-        background-color: $purple;
+        background-color: $background;
         aspect-ratio: 7/3;
         width: 100%;
         background-position: center center;
@@ -904,12 +903,12 @@ section.add {
 
         &:before {
             position: absolute;
-            bottom: -3px;
-            left: -3px;
-            width: calc(40% + 6px);
-            height: calc(100% + 6px);
+            bottom: 0;
+            left: 0;
+            width: 40%;
+            height: 100%;
             content: '';
-            background: linear-gradient(to right, rgba($background, 0.9) 0%, rgba(255, 255, 255, 0) 100%);
+            background: linear-gradient(to right, rgba($background, 0.9) 0%, transparent 100%);
         }
 
         .rating {
