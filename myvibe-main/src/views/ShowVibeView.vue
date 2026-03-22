@@ -160,7 +160,7 @@ export default {
 				});
 				return await this.urlToBase64(response.data);
 			} catch (error) {
-				const corsUrl = this.corsLink + url;
+				const corsUrl = this.corsLink + encodeURIComponent(url);
 				try {
 					const response = await axios.get(corsUrl, {
 						responseType: 'blob',

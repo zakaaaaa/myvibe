@@ -21,7 +21,6 @@ Rate it. Organize it. Share it. MyVibe makes it easy to turn your favorite thing
 
 MyVibe, app, rate, create, share, favorites, music, movies, memes, books, top lists, social sharing
 
-https://myvibeapp.co/support.html
 
 2025 MyVibe App
 

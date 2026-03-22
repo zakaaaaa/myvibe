@@ -53,8 +53,23 @@
 						@touchend="onBubbleTouchEnd($event)"
 						@contextmenu.prevent="openBubbleMenu($event, message)"
 					>
+						<!-- Shared vibe card -->
+						<div v-if="message.sharedVibe" class="shared-vibe-card" @click="goToVibe(message.sharedVibe)">
+							<div class="shared-vibe-card__thumb" :style="{ backgroundImage: `url(${message.sharedVibe.image})` }">
+								<div class="shared-vibe-card__gradient"></div>
+								<div class="shared-vibe-card__rating" v-if="message.sharedVibe.rating">
+									<fa :icon="['fas', 'star']" />
+									<span>{{ message.sharedVibe.rating }}</span>
+								</div>
+							</div>
+							<div class="shared-vibe-card__body">
+								<h5>{{ message.sharedVibe.title }}</h5>
+								<p v-if="message.sharedVibe.comment">{{ message.sharedVibe.comment.length > 80 ? message.sharedVibe.comment.slice(0, 80) + '...' : message.sharedVibe.comment }}</p>
+								<small>@{{ message.sharedVibe.username }}</small>
+							</div>
+						</div>
 						<!-- Reply preview -->
-						<div v-if="message.replyTo" class="reply-preview">
+						<div v-if="message.replyTo && !message.sharedVibe" class="reply-preview">
 							<span>{{ message.replyTo }}</span>
 						</div>
 						<p class="text">{{ message.message_text }}</p>
@@ -79,9 +94,25 @@
 				</div>
 			</transition>
 
+			<!-- Vibe attachment bar -->
+			<transition name="reply-bar">
+				<div v-if="vibeAttachment" class="vibe-attach-bar">
+					<div class="vibe-attach-bar__content">
+						<div class="vibe-attach-bar__image" :style="{ backgroundImage: `url(${vibeAttachment.image})` }"></div>
+						<div class="vibe-attach-bar__text">
+							<small>Replying to vibe</small>
+							<p>{{ vibeAttachment.title }} · @{{ vibeAttachment.username }}</p>
+						</div>
+					</div>
+					<div class="vibe-attach-bar__close" @click="cancelVibeAttach()">
+						<fa icon="xmark" />
+					</div>
+				</div>
+			</transition>
+
 			<div class="comment-box anim-input">
-				<input type="text" v-model="chatQuery" placeholder="Say something here!" @keyup.enter="sendChat(profile.id)" />
-				<div class="send-btn" :class="{ 'send-btn--active': chatQuery.trim() }" @click="sendChat(profile.id)">
+				<input type="text" v-model="chatQuery" :placeholder="vibeAttachment ? 'Say something about this vibe...' : 'Say something here!'" @keyup.enter="sendChat(profile.id)" ref="chatInput" />
+				<div class="send-btn" :class="{ 'send-btn--active': chatQuery.trim() || vibeAttachment }" @click="sendChat(profile.id)">
 					<fa :icon="['far', 'paper-plane']" />
 				</div>
 			</div>
@@ -120,13 +151,16 @@ export default {
 			// Reply
 			replyingTo: null,
 			// Toast
-			showCopiedToast: false
+			showCopiedToast: false,
+			// Vibe attachment
+			vibeAttachment: null
 		};
 	},
 	mounted() {
 		listenForMessages();
 		this.getUser();
 		this.startConversationPolling();
+		this.checkVibeAttachment();
 	},
 	beforeUnmount() {
 		if (this.conversationInterval) clearInterval(this.conversationInterval);
@@ -135,6 +169,50 @@ export default {
 		if (this.conversationInterval) clearInterval(this.conversationInterval);
 	},
 	methods: {
+		// === VIBE ATTACHMENT ===
+		checkVibeAttachment() {
+			const q = this.$route.query;
+			if (q.vibeId && q.vibeTitle) {
+				this.vibeAttachment = {
+					id: q.vibeId,
+					title: q.vibeTitle,
+					image: q.vibeImage || '',
+					user: q.vibeUser || '',
+					username: q.vibeUsername || '',
+					comment: q.vibeComment || '',
+					rating: q.vibeRating || ''
+				};
+				// Focus input after load
+				this.$nextTick(() => {
+					if (this.$refs.chatInput) this.$refs.chatInput.focus();
+				});
+			}
+		},
+		cancelVibeAttach() {
+			this.vibeAttachment = null;
+			this.chatQuery = '';
+			this.$router.replace({ path: this.$route.path });
+		},
+		goToVibe(vibe) {
+			if (vibe && vibe.username && vibe.id) {
+				this.$router.push('/' + vibe.username + '/' + vibe.id);
+			}
+		},
+		parseSharedVibe(message) {
+			// Try parse reply_to_text as JSON vibe data
+			if (message.reply_to_text) {
+				try {
+					const data = JSON.parse(message.reply_to_text);
+					if (data && data._type === 'shared_vibe') {
+						return data;
+					}
+				} catch (e) {
+					// Not JSON — regular reply text
+				}
+			}
+			return null;
+		},
+
 		formatTime(dateString) {
 			const parsedDate = parseISO(dateString);
 			if (isToday(parsedDate)) return format(parsedDate, 'HH:mm');
@@ -162,7 +240,14 @@ export default {
 		async getConversation(id) {
 			try {
 				const response = await dashboardService.getDetailChatMessage(id);
-				this.messages = response.data.map(m => ({ ...m, replyTo: m.reply_to_text || null }));
+				this.messages = response.data.map(m => {
+					const sharedVibe = this.parseSharedVibe(m);
+					return {
+						...m,
+						replyTo: sharedVibe ? null : (m.reply_to_text || null),
+						sharedVibe: sharedVibe
+					};
+				});
 			} catch (error) {
 				console.error('Error fetching conversation:', error);
 			} finally {
@@ -176,10 +261,30 @@ export default {
 			});
 		},
 		async sendChat(id) {
-			if (!this.chatQuery.trim()) return;
-			const msgText = this.chatQuery;
+			const hasText = this.chatQuery.trim();
+			const hasVibe = this.vibeAttachment;
+
+			if (!hasText && !hasVibe) return;
+
+			// Message text is what user typed (clean, no URLs)
+			const msgText = hasText ? this.chatQuery : '🎵';
 			const replyText = this.replyingTo ? this.replyingTo.message_text : null;
 			const replyId = this.replyingTo ? this.replyingTo.id : null;
+
+			// If sharing vibe, store vibe data as JSON in reply_to_text
+			let vibeReplyText = null;
+			if (hasVibe) {
+				vibeReplyText = JSON.stringify({
+					_type: 'shared_vibe',
+					id: hasVibe.id,
+					title: hasVibe.title,
+					image: hasVibe.image,
+					comment: hasVibe.comment,
+					rating: hasVibe.rating,
+					username: hasVibe.username,
+					user: hasVibe.user
+				});
+			}
 
 			// Optimistic add
 			const tempMsg = {
@@ -188,11 +293,24 @@ export default {
 				message_text: msgText,
 				replyTo: replyText,
 				created_at: new Date().toISOString(),
-				isNew: true
+				isNew: true,
+				sharedVibe: hasVibe ? {
+					id: hasVibe.id,
+					title: hasVibe.title,
+					image: hasVibe.image,
+					comment: hasVibe.comment,
+					rating: hasVibe.rating,
+					username: hasVibe.username,
+					user: hasVibe.user
+				} : null
 			};
 			this.messages.push(tempMsg);
 			this.chatQuery = '';
 			this.replyingTo = null;
+			this.vibeAttachment = null;
+			if (this.$route.query.vibeId) {
+				this.$router.replace({ path: this.$route.path });
+			}
 			this.scrollToLastMessage();
 
 			try {
@@ -200,7 +318,7 @@ export default {
 					receiver_id: id,
 					message: msgText,
 					reply_to_id: replyId,
-					reply_to_text: replyText
+					reply_to_text: hasVibe ? vibeReplyText : replyText
 				};
 				await dashboardService.postMessage(params);
 				this.getConversation(id);
@@ -225,7 +343,6 @@ export default {
 			const menuHeight = 140;
 			let x = touch.clientX - menuWidth / 2;
 			let y = touch.clientY - menuHeight - 10;
-			// Keep in bounds
 			if (x < 10) x = 10;
 			if (x + menuWidth > window.innerWidth - 10) x = window.innerWidth - menuWidth - 10;
 			if (y < 10) y = touch.clientY + 20;
@@ -240,14 +357,11 @@ export default {
 		replyMessage() {
 			this.replyingTo = this.selectedMessage;
 			this.closeBubbleMenu();
-			// Focus input
 			this.$nextTick(() => {
-				const input = this.$el.querySelector('.comment-box input');
-				if (input) input.focus();
+				if (this.$refs.chatInput) this.$refs.chatInput.focus();
 			});
 		},
 		forwardMessage() {
-			// Copy text and go to chat list to pick recipient
 			if (this.selectedMessage) {
 				navigator.clipboard.writeText(this.selectedMessage.message_text).catch(() => {});
 			}
@@ -297,142 +411,131 @@ export default {
 @import '@/assets/scss/color.scss';
 
 // === BLOBS ===
-.cv-blob {
-	position: fixed;
-	filter: blur(55px);
-	pointer-events: none;
-	z-index: 0;
-}
-.cv-blob--1 {
-	top: -5%;
-	right: -15%;
-	width: min(220px, 50vw);
-	height: min(220px, 50vw);
-	background: radial-gradient(circle, rgba($purple, 0.15) 0%, transparent 70%);
-	border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
-	animation: cvB1 14s ease-in-out infinite;
-}
-.cv-blob--2 {
-	bottom: 12%;
-	left: -12%;
-	width: min(200px, 46vw);
-	height: min(200px, 46vw);
-	background: radial-gradient(circle, rgba(#4a3adf, 0.12) 0%, transparent 70%);
-	border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
-	animation: cvB2 17s ease-in-out infinite;
-}
-@keyframes cvB1 {
-	0%, 100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; transform: translate(0,0) rotate(0deg); }
-	50% { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; transform: translate(-8px,12px) rotate(25deg); }
-}
-@keyframes cvB2 {
-	0%, 100% { border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; transform: translate(0,0) rotate(0deg); }
-	50% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; transform: translate(10px,-8px) rotate(-25deg); }
-}
+.cv-blob { position: fixed; filter: blur(55px); pointer-events: none; z-index: 0; }
+.cv-blob--1 { top: -5%; right: -15%; width: min(220px, 50vw); height: min(220px, 50vw); background: radial-gradient(circle, rgba($purple, 0.15) 0%, transparent 70%); border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; animation: cvB1 14s ease-in-out infinite; }
+.cv-blob--2 { bottom: 12%; left: -12%; width: min(200px, 46vw); height: min(200px, 46vw); background: radial-gradient(circle, rgba(#4a3adf, 0.12) 0%, transparent 70%); border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; animation: cvB2 17s ease-in-out infinite; }
+@keyframes cvB1 { 0%, 100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; transform: translate(0,0) rotate(0deg); } 50% { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; transform: translate(-8px,12px) rotate(25deg); } }
+@keyframes cvB2 { 0%, 100% { border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; transform: translate(0,0) rotate(0deg); } 50% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; transform: translate(10px,-8px) rotate(-25deg); } }
 
-// === ENTRANCE ANIMATIONS ===
+// === ANIMATIONS ===
 .anim-header { animation: cvDown 0.4s cubic-bezier(0.23,1,0.32,1) both; }
 .anim-input { animation: cvUp 0.4s cubic-bezier(0.23,1,0.32,1) 0.15s both; }
 @keyframes cvDown { from { opacity:0; transform:translateY(-16px); } to { opacity:1; transform:translateY(0); } }
 @keyframes cvUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+.msg-new { animation: msgPopIn 0.35s cubic-bezier(0.23,1,0.32,1) both; }
+@keyframes msgPopIn { from { opacity: 0; transform: translateY(12px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
-// === NEW MESSAGE ANIMATION ===
-.msg-new {
-	animation: msgPopIn 0.35s cubic-bezier(0.23,1,0.32,1) both;
+// === HEADER ===
+.header-back { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 50%; color: $white; font-size: 14px; cursor: pointer; background: rgba($white, 0.04); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba($white, 0.08); box-shadow: 0 2px 10px rgba(0,0,0,0.15), inset 0 1px 0 rgba($white,0.06); transition: all 0.3s ease; flex-shrink: 0;
+	&:hover { background: rgba($purple, 0.15); border-color: rgba($purple, 0.25); } &:active { transform: scale(0.9); }
 }
-@keyframes msgPopIn {
-	from { opacity: 0; transform: translateY(12px) scale(0.95); }
-	to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-// === HEADER — GLASS BACK & PROFILE BTN ===
-.header-back {
-	width: 38px;
-	height: 38px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	border-radius: 50%;
-	color: $white;
-	font-size: 14px;
-	cursor: pointer;
-	background: rgba($white, 0.04);
-	backdrop-filter: blur(16px);
-	-webkit-backdrop-filter: blur(16px);
-	border: 1px solid rgba($white, 0.08);
-	box-shadow: 0 2px 10px rgba(0,0,0,0.15), inset 0 1px 0 rgba($white,0.06);
-	transition: all 0.3s ease;
-	flex-shrink: 0;
-
-	&:hover {
-		background: rgba($purple, 0.15);
-		border-color: rgba($purple, 0.25);
-	}
-	&:active { transform: scale(0.9); }
+.header-profile-btn { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 50%; color: $white; font-size: 16px; cursor: pointer; background: rgba($white, 0.04); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba($white, 0.08); box-shadow: 0 2px 10px rgba(0,0,0,0.15), inset 0 1px 0 rgba($white,0.06); transition: all 0.3s ease; flex-shrink: 0;
+	&:hover { background: rgba($white, 0.08); } &:active { transform: scale(0.9); }
 }
 
-.header-profile-btn {
-	width: 38px;
-	height: 38px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	border-radius: 50%;
-	color: $white;
-	font-size: 16px;
-	cursor: pointer;
-	background: rgba($white, 0.04);
-	backdrop-filter: blur(16px);
-	-webkit-backdrop-filter: blur(16px);
-	border: 1px solid rgba($white, 0.08);
-	box-shadow: 0 2px 10px rgba(0,0,0,0.15), inset 0 1px 0 rgba($white,0.06);
-	transition: all 0.3s ease;
-	flex-shrink: 0;
-
-	&:hover {
-		background: rgba($white, 0.08);
-	}
-	&:active { transform: scale(0.9); }
+// === MESSAGE BUBBLES ===
+.messages .message { position: relative;
+	&.left { background: rgba($background_second, 0.7) !important; backdrop-filter: blur(12px) !important; -webkit-backdrop-filter: blur(12px) !important; border: 1px solid rgba($white, 0.06) !important; box-shadow: 0 2px 10px rgba(0,0,0,0.1), inset 0 1px 0 rgba($white,0.03); }
+	&.right { background: linear-gradient(135deg, rgba($purple, 0.55), rgba($purple, 0.75)) !important; backdrop-filter: blur(12px) !important; -webkit-backdrop-filter: blur(12px) !important; border: 1px solid rgba($white, 0.1) !important; box-shadow: 0 4px 16px rgba($purple, 0.2), inset 0 1px 0 rgba($white,0.1); }
 }
 
-// === MESSAGE BUBBLES — GLASS ENHANCED ===
-.messages .message {
-	position: relative;
-
-	&.left {
-		background: rgba($background_second, 0.7) !important;
-		backdrop-filter: blur(12px) !important;
-		-webkit-backdrop-filter: blur(12px) !important;
-		border: 1px solid rgba($white, 0.06) !important;
-		box-shadow: 0 2px 10px rgba(0,0,0,0.1), inset 0 1px 0 rgba($white,0.03);
-	}
-
-	&.right {
-		background: linear-gradient(135deg, rgba($purple, 0.55), rgba($purple, 0.75)) !important;
-		backdrop-filter: blur(12px) !important;
-		-webkit-backdrop-filter: blur(12px) !important;
-		border: 1px solid rgba($white, 0.1) !important;
-		box-shadow: 0 4px 16px rgba($purple, 0.2), inset 0 1px 0 rgba($white,0.1);
-	}
-}
-
-// === REPLY PREVIEW (inside bubble) ===
-.reply-preview {
-	background: rgba($white, 0.06);
-	border-left: 2px solid rgba($purple, 0.6);
-	border-radius: 4px;
-	padding: 4px 8px;
-	margin-bottom: 6px;
-	font-size: 11px;
-	color: rgba($white, 0.5);
-	max-height: 36px;
+// === SHARED VIBE CARD (inside bubble) ===
+.shared-vibe-card {
+	margin-bottom: 8px;
+	border-radius: 14px;
 	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	background: rgba(0, 0, 0, 0.2);
+	border: 1px solid rgba($white, 0.08);
+	cursor: pointer;
+	transition: all 0.2s ease;
+
+	&:active { transform: scale(0.98); opacity: 0.9; }
+
+	&__thumb {
+		width: 100%;
+		height: 120px;
+		background-size: cover;
+		background-position: center;
+		position: relative;
+	}
+
+	&__gradient {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		height: 60%;
+		background: linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, transparent 100%);
+	}
+
+	&__rating {
+		position: absolute;
+		bottom: 8px;
+		right: 10px;
+		display: flex;
+		align-items: center;
+		gap: 3px;
+		background: rgba(0, 0, 0, 0.4);
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
+		padding: 2px 8px;
+		border-radius: 8px;
+		border: 1px solid rgba($white, 0.1);
+
+		svg { color: $purple; font-size: 10px; }
+		span { color: $white; font-size: 11px; font-weight: 700; }
+	}
+
+	&__body {
+		padding: 10px 12px;
+
+		h5 {
+			font-size: 14px;
+			font-weight: 700;
+			color: $white;
+			margin: 0 0 2px;
+			line-height: 1.3;
+			display: -webkit-box;
+			-webkit-line-clamp: 1;
+			-webkit-box-orient: vertical;
+			overflow: hidden;
+		}
+
+		p {
+			font-size: 12px;
+			color: rgba($white, 0.5);
+			margin: 0 0 4px;
+			line-height: 1.3;
+			display: -webkit-box;
+			-webkit-line-clamp: 2;
+			-webkit-box-orient: vertical;
+			overflow: hidden;
+		}
+
+		small {
+			font-size: 10px;
+			color: rgba($white, 0.35);
+		}
+	}
 }
 
-// === REPLY BAR (above input) ===
-.reply-bar {
+// === REPLY PREVIEW ===
+.reply-preview { background: rgba($white, 0.06); border-left: 2px solid rgba($purple, 0.6); border-radius: 4px; padding: 4px 8px; margin-bottom: 6px; font-size: 11px; color: rgba($white, 0.5); max-height: 36px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+// === REPLY BAR ===
+.reply-bar { position: fixed; bottom: calc(3dvh + 58px); left: 50%; transform: translateX(-50%); width: calc(100% - 30px); max-width: 460px; background: rgba($background_second, 0.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba($white, 0.08); border-radius: 16px 16px 0 0; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; z-index: 10;
+	&__content { display: flex; align-items: center; gap: 10px; overflow: hidden; flex: 1; }
+	&__line { width: 3px; height: 28px; background: $purple; border-radius: 2px; flex-shrink: 0; }
+	&__text { overflow: hidden; small { font-size: 10px; color: $purple; font-weight: 600; display: block; } p { margin: 0; font-size: 12px; color: rgba($white, 0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; } }
+	&__close { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba($white, 0.06); border: 1px solid rgba($white, 0.08); color: rgba($white, 0.5); font-size: 12px; cursor: pointer; flex-shrink: 0; transition: all 0.3s ease; &:hover { background: rgba($white, 0.1); color: $white; } }
+}
+.reply-bar-enter-active { transition: all 0.3s cubic-bezier(0.23,1,0.32,1); }
+.reply-bar-leave-active { transition: all 0.2s ease-in; }
+.reply-bar-enter-from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+.reply-bar-leave-to { opacity: 0; transform: translateX(-50%) translateY(10px); }
+
+// === VIBE ATTACHMENT BAR ===
+.vibe-attach-bar {
 	position: fixed;
 	bottom: calc(3dvh + 58px);
 	left: 50%;
@@ -442,7 +545,7 @@ export default {
 	background: rgba($background_second, 0.85);
 	backdrop-filter: blur(16px);
 	-webkit-backdrop-filter: blur(16px);
-	border: 1px solid rgba($white, 0.08);
+	border: 1px solid rgba($purple, 0.2);
 	border-radius: 16px 16px 0 0;
 	padding: 10px 14px;
 	display: flex;
@@ -450,182 +553,45 @@ export default {
 	justify-content: space-between;
 	z-index: 10;
 
-	&__content {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		overflow: hidden;
-		flex: 1;
-	}
-
-	&__line {
-		width: 3px;
-		height: 28px;
-		background: $purple;
-		border-radius: 2px;
-		flex-shrink: 0;
-	}
-
-	&__text {
-		overflow: hidden;
+	&__content { display: flex; align-items: center; gap: 10px; overflow: hidden; flex: 1; }
+	&__image { width: 40px; height: 40px; border-radius: 8px; background-size: cover; background-position: center; flex-shrink: 0; border: 1px solid rgba($white, 0.1); }
+	&__text { overflow: hidden;
 		small { font-size: 10px; color: $purple; font-weight: 600; display: block; }
-		p {
-			margin: 0; font-size: 12px; color: rgba($white, 0.5);
-			white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-			max-width: 260px;
-		}
+		p { margin: 0; font-size: 12px; color: rgba($white, 0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
 	}
-
-	&__close {
-		width: 28px;
-		height: 28px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 50%;
-		background: rgba($white, 0.06);
-		border: 1px solid rgba($white, 0.08);
-		color: rgba($white, 0.5);
-		font-size: 12px;
-		cursor: pointer;
-		flex-shrink: 0;
-		transition: all 0.3s ease;
-
-		&:hover { background: rgba($white, 0.1); color: $white; }
-	}
+	&__close { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba($white, 0.06); border: 1px solid rgba($white, 0.08); color: rgba($white, 0.5); font-size: 12px; cursor: pointer; flex-shrink: 0; transition: all 0.3s ease; &:hover { background: rgba($white, 0.1); color: $white; } }
 }
 
-.reply-bar-enter-active { transition: all 0.3s cubic-bezier(0.23,1,0.32,1); }
-.reply-bar-leave-active { transition: all 0.2s ease-in; }
-.reply-bar-enter-from { opacity: 0; transform: translateX(-50%) translateY(10px); }
-.reply-bar-leave-to { opacity: 0; transform: translateX(-50%) translateY(10px); }
-
-// === SEND BUTTON GLASS ===
+// === SEND BUTTON ===
 .comment-box {
-	.send-btn {
-		width: 36px;
-		height: 36px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 50%;
-		color: rgba($white, 0.3);
-		font-size: 16px;
-		cursor: pointer;
-		background: rgba($white, 0.04);
-		border: 1px solid rgba($white, 0.06);
-		transition: all 0.4s cubic-bezier(0.23,1,0.32,1);
-		flex-shrink: 0;
-
-		&--active {
-			color: $white;
-			background: rgba($purple, 0.6);
-			border-color: rgba($purple, 0.3);
-			box-shadow: 0 4px 14px rgba($purple, 0.25);
-
-			&:hover {
-				background: rgba($purple, 0.75);
-				transform: scale(1.08);
-				box-shadow: 0 6px 20px rgba($purple, 0.35);
-			}
+	.send-btn { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; color: rgba($white, 0.3); font-size: 16px; cursor: pointer; background: rgba($white, 0.04); border: 1px solid rgba($white, 0.06); transition: all 0.4s cubic-bezier(0.23,1,0.32,1); flex-shrink: 0;
+		&--active { color: $white; background: rgba($purple, 0.6); border-color: rgba($purple, 0.3); box-shadow: 0 4px 14px rgba($purple, 0.25);
+			&:hover { background: rgba($purple, 0.75); transform: scale(1.08); box-shadow: 0 6px 20px rgba($purple, 0.35); }
 		}
-
 		&:active { transform: scale(0.88); }
 	}
 }
 
-// === BUBBLE ACTION MENU ===
-.bubble-menu-overlay {
-	position: fixed;
-	top: 0; left: 0; right: 0; bottom: 0;
-	z-index: 999;
-	background: rgba($black, 0.25);
-	backdrop-filter: blur(4px);
-	-webkit-backdrop-filter: blur(4px);
-}
-
-.bubble-menu {
-	position: fixed;
-	z-index: 1000;
-	background: rgba($background_second, 0.92);
-	backdrop-filter: blur(24px);
-	-webkit-backdrop-filter: blur(24px);
-	border: 1px solid rgba($white, 0.1);
-	border-radius: 16px;
-	padding: 6px;
-	box-shadow: 0 12px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba($white,0.08);
-	min-width: 150px;
-	overflow: hidden;
-
-	// Glass reflection
-	&::before {
-		content: '';
-		position: absolute;
-		top: 0; left: 8%; right: 8%; height: 1px;
-		background: linear-gradient(90deg, transparent, rgba($white,0.15), transparent);
-		pointer-events: none;
-	}
-
-	&__item {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		padding: 11px 14px;
-		color: $white;
-		font-size: 13px;
-		font-weight: 500;
-		cursor: pointer;
-		border-radius: 10px;
-		transition: all 0.2s ease;
-
+// === BUBBLE MENU ===
+.bubble-menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 999; background: rgba($black, 0.25); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.bubble-menu { position: fixed; z-index: 1000; background: rgba($background_second, 0.92); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba($white, 0.1); border-radius: 16px; padding: 6px; box-shadow: 0 12px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba($white,0.08); min-width: 150px; overflow: hidden;
+	&::before { content: ''; position: absolute; top: 0; left: 8%; right: 8%; height: 1px; background: linear-gradient(90deg, transparent, rgba($white,0.15), transparent); pointer-events: none; }
+	&__item { display: flex; align-items: center; gap: 10px; padding: 11px 14px; color: $white; font-size: 13px; font-weight: 500; cursor: pointer; border-radius: 10px; transition: all 0.2s ease;
 		svg { font-size: 14px; color: rgba($white, 0.5); width: 18px; }
-
-		&:hover {
-			background: rgba($white, 0.06);
-		}
-
-		&:active {
-			background: rgba($purple, 0.15);
-		}
+		&:hover { background: rgba($white, 0.06); } &:active { background: rgba($purple, 0.15); }
 	}
 }
-
 .bubble-menu-enter-active { transition: all 0.25s cubic-bezier(0.23,1,0.32,1); }
 .bubble-menu-leave-active { transition: all 0.15s ease-in; }
-.bubble-menu-enter-from { opacity: 0; .bubble-menu { transform: scale(0.9); } }
-.bubble-menu-leave-to { opacity: 0; }
+.bubble-menu-enter-from { opacity: 0; } .bubble-menu-leave-to { opacity: 0; }
 
-// === COPIED TOAST ===
-.copied-toast {
-	position: fixed;
-	top: 50%;
-	left: 50%;
-	transform: translate(-50%, -50%);
-	z-index: 9999;
-	background: rgba($background_second, 0.9);
-	backdrop-filter: blur(20px);
-	-webkit-backdrop-filter: blur(20px);
-	border: 1px solid rgba($white, 0.1);
-	border-radius: 14px;
-	padding: 12px 28px;
-	color: $white;
-	font-size: 14px;
-	font-weight: 600;
-	box-shadow: 0 8px 28px rgba(0,0,0,0.3);
-}
+// === TOAST ===
+.copied-toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; background: rgba($background_second, 0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba($white, 0.1); border-radius: 14px; padding: 12px 28px; color: $white; font-size: 14px; font-weight: 600; box-shadow: 0 8px 28px rgba(0,0,0,0.3); }
 .toast-pop-enter-active { transition: all 0.3s cubic-bezier(0.23,1,0.32,1); }
 .toast-pop-leave-active { transition: all 0.2s ease-in; }
 .toast-pop-enter-from { opacity: 0; transform: translate(-50%, -50%) scale(0.85); }
 .toast-pop-leave-to { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
 
 // === LOADING ===
-.loading {
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	height: 100dvh;
-	color: $purple;
-	font-size: 28px;
-	filter: drop-shadow(0 0 12px rgba($purple, 0.4));
-}
+.loading { display: flex; justify-content: center; align-items: center; height: 100dvh; color: $purple; font-size: 28px; filter: drop-shadow(0 0 12px rgba($purple, 0.4)); }
 </style>
