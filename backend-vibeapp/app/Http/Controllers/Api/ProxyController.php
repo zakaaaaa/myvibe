@@ -1,7 +1,5 @@
 <?php
-
 namespace App\Http\Controllers\Api;
-
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use GuzzleHttp\Client;
@@ -21,6 +19,7 @@ class ProxyController extends Controller
             'itunes.apple.com',
             'www.googleapis.com',
             'localhost',
+            'books.google.com',
             '127.0.0.1',
         ];
 

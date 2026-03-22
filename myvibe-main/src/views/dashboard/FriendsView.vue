@@ -115,6 +115,9 @@
 						<div class="popup-preview-user">
 							<img :src="selectedVibe?.user?.profile_picture" alt="" />
 							<span>{{ selectedVibe?.user?.name }}</span>
+							<!-- Follow status badge -->
+							<span v-if="popupFollowStatus === 'friends'" class="popup-status-badge popup-status-badge--friends">Friends</span>
+							<span v-else-if="popupFollowStatus === 'following'" class="popup-status-badge popup-status-badge--following">Following</span>
 						</div>
 						<h4>{{ selectedVibe?.title }}</h4>
 						<p>{{ selectedVibe?.comment && selectedVibe.comment.length > 60 ? selectedVibe.comment.slice(0, 60) + '...' : selectedVibe?.comment }}</p>
@@ -137,10 +140,43 @@
 						<span>Share This Vibe</span>
 					</button>
 					<div class="popup-divider"></div>
+					<button class="popup-action" @click.stop="handleAction('saveVibe')">
+						<fa :icon="['far', 'bookmark']" />
+						<span>Save Vibe</span>
+					</button>
+					<div class="popup-divider"></div>
 					<button class="popup-action popup-action-danger" @click.stop="handleAction('report')">
 						<fa :icon="['fas', 'flag']" />
 						<span>Report</span>
 					</button>
+				</div>
+			</div>
+		</Transition>
+
+		<!-- Follow First Popup -->
+		<Transition name="popup-overlay">
+			<div v-if="showFollowPopup" class="popup-overlay" @click="closeFollowPopup" @touchstart.prevent="closeFollowPopup"></div>
+		</Transition>
+		<Transition name="popup-menu">
+			<div v-if="showFollowPopup" class="popup-container popup-container--center">
+				<div class="popup-follow">
+					<div class="popup-follow__avatar">
+						<img :src="pendingVibeShare?.user?.profile_picture" alt="" />
+					</div>
+					<h3>Follow {{ pendingVibeShare?.user?.name }} first</h3>
+					<p>You need to follow <strong>@{{ pendingVibeShare?.user?.username }}</strong> before you can share vibes with them.</p>
+					<div class="popup-follow__buttons">
+						<button class="popup-btn popup-btn--purple" @click="followAndShare()">
+							<fa :icon="['fas', 'user-plus']" />
+							<span>Follow & Share</span>
+						</button>
+						<button class="popup-btn" @click="followOnly()">
+							<span>Follow Only</span>
+						</button>
+						<button class="popup-btn popup-btn--ghost" @click="closeFollowPopup()">
+							<span>Cancel</span>
+						</button>
+					</div>
 				</div>
 			</div>
 		</Transition>
@@ -216,6 +252,10 @@ export default {
 			longPressDuration: 500,
 			popupPosition: {},
 			isLongPressing: false,
+			popupFollowStatus: null,
+			// Follow popup
+			showFollowPopup: false,
+			pendingVibeShare: null,
 			// Report popup
 			showReportPopup: false,
 			// Toast
@@ -245,9 +285,7 @@ export default {
 				this.longPressTimer = null;
 			}
 			if (this.isLongPressing) {
-				setTimeout(() => {
-					this.isLongPressing = false;
-				}, 100);
+				setTimeout(() => { this.isLongPressing = false; }, 100);
 			}
 		},
 		cancelLongPress() {
@@ -259,43 +297,44 @@ export default {
 		openPopup(event, section) {
 			this.openPopupAt(event, section);
 		},
-		openPopupAt(event, section) {
+		async openPopupAt(event, section) {
 			this.selectedVibe = section;
 			this.selectedContent = section;
+			this.popupFollowStatus = null;
 
-			if (navigator.vibrate) {
-				navigator.vibrate(10);
-			}
+			if (navigator.vibrate) navigator.vibrate(10);
 
 			const viewportHeight = window.innerHeight;
 			const viewportWidth = window.innerWidth;
-			let clientY;
-
-			if (event.touches) {
-				clientY = event.touches[0].clientY;
-			} else {
-				clientY = event.clientY;
-			}
+			let clientY = event.touches ? event.touches[0].clientY : event.clientY;
 
 			const popupWidth = Math.min(viewportWidth - 40, 300);
 			let left = (viewportWidth - popupWidth) / 2;
 			let top = clientY - 220;
-
 			if (top < 20) top = 20;
 			if (top + 420 > viewportHeight) top = viewportHeight - 440;
 
-			this.popupPosition = {
-				top: `${top}px`,
-				left: `${left}px`,
-				width: `${popupWidth}px`
-			};
-
+			this.popupPosition = { top: `${top}px`, left: `${left}px`, width: `${popupWidth}px` };
 			this.showPopup = true;
+
+			// Check follow status in background
+			try {
+				const res = await dashboardService.getFriends(section.user.username);
+				const profile = res.data.profile;
+				if (profile.isFollowing && profile.isFollower) {
+					this.popupFollowStatus = 'friends';
+				} else if (profile.isFollowing) {
+					this.popupFollowStatus = 'following';
+				}
+			} catch (e) {
+				// Ignore — badge just won't show
+			}
 		},
 		closePopup() {
 			this.showPopup = false;
+			this.popupFollowStatus = null;
 			setTimeout(() => {
-				if (!this.showReportPopup) {
+				if (!this.showReportPopup && !this.showFollowPopup) {
 					this.selectedVibe = null;
 				}
 			}, 300);
@@ -306,40 +345,104 @@ export default {
 
 			switch (action) {
 				case 'detail':
-					if (vibe) {
-						this.$router.push('/' + vibe.user.username + '/' + vibe.id);
-					}
+					if (vibe) this.$router.push('/' + vibe.user.username + '/' + vibe.id);
 					break;
 				case 'profile':
-					if (vibe) {
-						this.goProfileUsername(vibe.user.username);
-					}
+					if (vibe) this.goProfileUsername(vibe.user.username);
 					break;
 				case 'sendVibe':
-					if (vibe) {
-						this.$router.push({
-							path: '/message/' + vibe.user.username,
-							query: {
-								vibeId: vibe.id,
-								vibeTitle: vibe.title,
-								vibeImage: vibe.image_url,
-								vibeUser: vibe.user.name,
-								vibeUsername: vibe.user.username,
-								vibeComment: vibe.comment || "",
-								vibeRating: vibe.rating || ""
-							}
-						});
-					}
+					if (vibe) this.handleSendVibe(vibe);
+					break;
+				case 'saveVibe':
+					if (vibe) this.handleSaveVibe(vibe);
 					break;
 				case 'report':
 					this.selectedAction = 'report';
 					this.commentReport = '';
-					setTimeout(() => {
-						this.showReportPopup = true;
-					}, 350);
+					setTimeout(() => { this.showReportPopup = true; }, 350);
 					break;
 			}
 		},
+
+		// === SEND VIBE (with follow check) ===
+		async handleSendVibe(vibe) {
+			try {
+				const res = await dashboardService.getFriends(vibe.user.username);
+				const profile = res.data.profile;
+
+				if (profile.isFollowing) {
+					// Already following → go to chat
+					this.navigateToChat(vibe);
+				} else {
+					// Not following → show follow popup
+					this.pendingVibeShare = vibe;
+					setTimeout(() => { this.showFollowPopup = true; }, 350);
+				}
+			} catch (error) {
+				console.error('Error checking follow status:', error);
+				// Fallback → try navigate anyway
+				this.navigateToChat(vibe);
+			}
+		},
+		navigateToChat(vibe) {
+			this.$router.push({
+				path: '/message/' + vibe.user.username,
+				query: {
+					vibeId: vibe.id,
+					vibeTitle: vibe.title,
+					vibeImage: vibe.image_url,
+					vibeUser: vibe.user.name,
+					vibeUsername: vibe.user.username,
+					vibeComment: vibe.comment || '',
+					vibeRating: vibe.rating || ''
+				}
+			});
+		},
+		async followAndShare() {
+			const vibe = this.pendingVibeShare;
+			if (!vibe) return;
+			try {
+				const res = await dashboardService.getFriends(vibe.user.username);
+				await dashboardService.followFriends(res.data.profile.id);
+				this.closeFollowPopup();
+				this.showSuccessToast('Followed! Redirecting to chat...');
+				setTimeout(() => { this.navigateToChat(vibe); }, 800);
+			} catch (error) {
+				console.error('Error following:', error);
+				this.showSuccessToast('Something went wrong');
+			}
+		},
+		async followOnly() {
+			const vibe = this.pendingVibeShare;
+			if (!vibe) return;
+			try {
+				const res = await dashboardService.getFriends(vibe.user.username);
+				await dashboardService.followFriends(res.data.profile.id);
+				this.closeFollowPopup();
+				this.showSuccessToast('Now following @' + vibe.user.username);
+			} catch (error) {
+				console.error('Error following:', error);
+				this.showSuccessToast('Something went wrong');
+			}
+		},
+		closeFollowPopup() {
+			this.showFollowPopup = false;
+			this.pendingVibeShare = null;
+			this.selectedVibe = null;
+		},
+
+		// === SAVE VIBE ===
+		async handleSaveVibe(vibe) {
+			try {
+				const res = await dashboardService.toggleSaveVibe({ vibe_id: vibe.id });
+				this.showSuccessToast(res.data.saved ? "Vibe saved!" : "Vibe unsaved");
+			} catch (e) {
+				console.error("Error saving vibe:", e);
+				this.showSuccessToast("Something went wrong");
+			}
+		},
+
+		// === REPORT / BLOCK ===
 		closeReportPopup() {
 			this.showReportPopup = false;
 			this.selectedVibe = null;
@@ -348,19 +451,13 @@ export default {
 		showSuccessToast(message) {
 			this.toastMessage = message;
 			this.showToast = true;
-			setTimeout(() => {
-				this.showToast = false;
-			}, 2000);
+			setTimeout(() => { this.showToast = false; }, 2000);
 		},
 
-		// === EXISTING METHODS ===
+		// === SEARCH / SPOTLIGHT ===
 		debounceSearch() {
-			if (this.debounceTimeout) {
-				clearTimeout(this.debounceTimeout);
-			}
-			this.debounceTimeout = setTimeout(() => {
-				this.searchFriend();
-			}, 1000);
+			if (this.debounceTimeout) clearTimeout(this.debounceTimeout);
+			this.debounceTimeout = setTimeout(() => { this.searchFriend(); }, 1000);
 		},
 		async searchFriend() {
 			if (!this.searchQuery.trim()) {
@@ -372,10 +469,7 @@ export default {
 				this.isRecentFriendList = false;
 				this.isLoading = true;
 				try {
-					const params = {
-						pagination: true,
-						search: this.searchQuery
-					};
+					const params = { pagination: true, search: this.searchQuery };
 					const response = await dashboardService.searchFriends(params);
 					for (let i = 0; i < response.data.data.length; i++) {
 						if (!response.data.data[i].profile_picture) {
@@ -396,10 +490,7 @@ export default {
 		async getSpotlight() {
 			this.isLoading = true;
 			try {
-				const params = {
-					pagination: true,
-					per_page: 10
-				};
+				const params = { pagination: true, per_page: 10 };
 				const response = await dashboardService.getExplore(params);
 				for (let i = 0; i < response.data.data.length; i++) {
 					if (!response.data.data[i].user.profile_picture) {
@@ -411,10 +502,7 @@ export default {
 						response.data.data[i].image_url = response.data.data[i].image_url.replace('http://', 'https://');
 					}
 				}
-				if (response.data.next_page) {
-					this.next = true;
-					this.nextPage = response.data.next_page;
-				}
+				if (response.data.next_page) { this.next = true; this.nextPage = response.data.next_page; }
 				this.exploreResult = response.data.data;
 				this.isExplore = true;
 				this.isLoading = false;
@@ -425,11 +513,7 @@ export default {
 		async loopList() {
 			if (this.next) {
 				try {
-					const params = {
-						pagination: true,
-						per_page: 10,
-						page: this.nextPage
-					};
+					const params = { pagination: true, per_page: 10, page: this.nextPage };
 					const response = await dashboardService.getExplore(params);
 					for (let i = 0; i < response.data.data.length; i++) {
 						if (!response.data.data[i].user.profile_picture) {
@@ -441,12 +525,7 @@ export default {
 							response.data.data[i].image_url = response.data.data[i].image_url.replace('http://', 'https://');
 						}
 					}
-					if (response.data.next_page) {
-						this.next = true;
-						this.nextPage = response.data.next_page;
-					} else {
-						this.next = false;
-					}
+					if (response.data.next_page) { this.next = true; this.nextPage = response.data.next_page; } else { this.next = false; }
 					this.exploreResult.push(...response.data.data);
 					this.isExplore = true;
 					this.isLoading = false;
@@ -464,19 +543,12 @@ export default {
 			this.isRecentFriendList = true;
 		},
 		goProfile(data) {
-			const info = {
-				profile_picture: data.profile_picture,
-				name: data.name,
-				username: data.username,
-				clicked_at: new Date()
-			};
+			const info = { profile_picture: data.profile_picture, name: data.name, username: data.username, clicked_at: new Date() };
 			const existingProfiles = JSON.parse(localStorage.getItem('recentProfiles')) || [];
 			const isExisting = existingProfiles.some((profile) => profile.username === info.username);
 			if (!isExisting) {
 				existingProfiles.unshift(info);
-				if (existingProfiles.length > 10) {
-					existingProfiles.pop();
-				}
+				if (existingProfiles.length > 10) existingProfiles.pop();
 				localStorage.setItem('recentProfiles', JSON.stringify(existingProfiles));
 			}
 			this.recentProfiles = existingProfiles;
@@ -505,10 +577,7 @@ export default {
 		},
 		async reportContent() {
 			try {
-				const params = {
-					vibe_id: this.selectedContent.id,
-					desc: this.commentReport
-				};
+				const params = { vibe_id: this.selectedContent.id, desc: this.commentReport };
 				await dashboardService.postReportVibe(params);
 			} catch (error) {
 				console.error('Error reporting content:', error);
@@ -523,18 +592,8 @@ export default {
 			const scrollHeight = container.scrollHeight;
 			const clientHeight = container.clientHeight;
 			if (scrollTop + clientHeight >= scrollHeight - 10) {
-				if (!this.hasCalledLoopList) {
-					this.loopList();
-					this.hasCalledLoopList = true;
-				} else {
-					if (!this.isLoadingMore) {
-						this.isLoadingMore = true;
-						setTimeout(() => {
-							this.loopList();
-							this.isLoadingMore = false;
-						}, 1000);
-					}
-				}
+				if (!this.hasCalledLoopList) { this.loopList(); this.hasCalledLoopList = true; }
+				else if (!this.isLoadingMore) { this.isLoadingMore = true; setTimeout(() => { this.loopList(); this.isLoadingMore = false; }, 1000); }
 			}
 		}
 	}
@@ -553,11 +612,9 @@ export default {
 @keyframes friendBlobFloat { 0%, 100% { transform: translateX(-50%) translateY(0) scale(1); opacity: 0.08; } 50% { transform: translateX(-50%) translateY(-16px) scale(1.05); opacity: 0.14; } }
 
 .friends-fade-enter-active, .friends-fade-leave-active { transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1); }
-.friends-fade-enter-from { opacity: 0; transform: translateY(20px); }
-.friends-fade-leave-to { opacity: 0; transform: translateY(-10px); }
+.friends-fade-enter-from { opacity: 0; transform: translateY(20px); } .friends-fade-leave-to { opacity: 0; transform: translateY(-10px); }
 .friends-slide-enter-active, .friends-slide-leave-active { transition: all 0.35s cubic-bezier(0.23, 1, 0.32, 1); }
-.friends-slide-enter-from { opacity: 0; transform: translateY(16px); }
-.friends-slide-leave-to { opacity: 0; transform: translateY(-8px); }
+.friends-slide-enter-from { opacity: 0; transform: translateY(16px); } .friends-slide-leave-to { opacity: 0; transform: translateY(-8px); }
 
 .anim-title { animation: friendEnterDown 0.6s cubic-bezier(0.23, 1, 0.32, 1) both; }
 .anim-search { animation: friendEnterUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) 0.1s both; }
@@ -574,7 +631,7 @@ export default {
 .search-box { position: relative !important; z-index: 2; background: rgba($white, 0.04) !important; backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important; border: 1px solid rgba($white, 0.08) !important; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba($white, 0.06) !important; transition: all 0.3s ease !important; overflow: hidden;
 	&::before { content: ''; position: absolute; top: 0; left: 10%; right: 10%; height: 1px; background: linear-gradient(90deg, transparent, rgba($white, 0.12), transparent); pointer-events: none; z-index: 2; }
 	&:focus-within { border-color: rgba($purple, 0.3) !important; box-shadow: 0 0 0 3px rgba($purple, 0.06), 0 8px 28px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba($white, 0.08) !important; background: rgba($white, 0.055) !important; }
-	.icon { transition: all 0.3s ease; &:hover { color: $purple !important; filter: drop-shadow(0 0 6px rgba($purple, 0.4)); } }
+	.icon { transition: all 0.3s ease; &:hover { color: $purple !important; } }
 }
 
 .section-title { display: flex; justify-content: space-between; align-items: center; padding: 0 10px; margin-bottom: 15px; position: relative; z-index: 2;
@@ -600,6 +657,7 @@ ul.friend_list > li { animation: friendCardSlideIn 0.4s ease-out both; position:
 }
 @keyframes friendCardSlideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
+// === POPUP OVERLAY & TRANSITIONS ===
 .popup-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); z-index: 100; }
 .popup-overlay-enter-active { transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 .popup-overlay-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -613,6 +671,7 @@ ul.friend_list > li { animation: friendCardSlideIn 0.4s ease-out both; position:
 	&--center { top: 50% !important; left: 50% !important; transform: translate(-50%, -50%); width: min(320px, calc(100vw - 40px)) !important; }
 }
 
+// === POPUP PREVIEW ===
 .popup-preview { border-radius: 20px; overflow: hidden; background: rgba(20, 20, 40, 0.6); backdrop-filter: blur(40px) saturate(1.5); -webkit-backdrop-filter: blur(40px) saturate(1.5); border: 1px solid rgba(255, 255, 255, 0.15); box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(255, 255, 255, 0.06) inset, inset 0 2px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.2); }
 .popup-preview-image { width: 100%; height: 160px; background-size: cover; background-position: center; }
 .popup-preview-info { padding: 12px 16px; }
@@ -623,6 +682,30 @@ ul.friend_list > li { animation: friendCardSlideIn 0.4s ease-out both; position:
 .popup-preview-info h4 { font-size: 15px; font-weight: 700; color: #fff; margin: 0; line-height: 1.3; }
 .popup-preview-info p { font-size: 12px; color: rgba(255, 255, 255, 0.4); margin: 4px 0 0; line-height: 1.4; }
 
+// === FOLLOW STATUS BADGE ===
+.popup-status-badge {
+	font-size: 9px;
+	font-weight: 700;
+	padding: 2px 8px;
+	border-radius: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	margin-left: auto;
+
+	&--friends {
+		background: rgba(52, 211, 153, 0.2);
+		color: #34d399;
+		border: 1px solid rgba(52, 211, 153, 0.25);
+	}
+
+	&--following {
+		background: rgba($purple, 0.2);
+		color: rgba(255, 255, 255, 0.7);
+		border: 1px solid rgba($purple, 0.25);
+	}
+}
+
+// === POPUP ACTIONS ===
 .popup-actions { display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; background: rgba(20, 20, 40, 0.6); backdrop-filter: blur(40px) saturate(1.5); -webkit-backdrop-filter: blur(40px) saturate(1.5); border: 1px solid rgba(255, 255, 255, 0.15); box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(255, 255, 255, 0.06) inset, inset 0 2px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.2); }
 .popup-action { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: none; border: none; color: #fff; font-size: 15px; font-weight: 500; cursor: pointer; transition: background 0.15s ease; text-align: left; width: 100%;
 	svg { width: 18px; color: rgba(255, 255, 255, 0.5); }
@@ -631,6 +714,49 @@ ul.friend_list > li { animation: friendCardSlideIn 0.4s ease-out both; position:
 }
 .popup-divider { height: 0.5px; background: rgba(255, 255, 255, 0.1); margin: 0 14px; }
 
+// === FOLLOW POPUP ===
+.popup-follow {
+	border-radius: 20px;
+	background: rgba(20, 20, 40, 0.75);
+	backdrop-filter: blur(40px) saturate(1.5);
+	-webkit-backdrop-filter: blur(40px) saturate(1.5);
+	border: 1px solid rgba(255, 255, 255, 0.15);
+	box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5), inset 0 2px 0 rgba(255, 255, 255, 0.08);
+	padding: 24px 20px;
+	text-align: center;
+
+	&__avatar {
+		margin-bottom: 14px;
+		img {
+			width: 56px;
+			height: 56px;
+			border-radius: 50%;
+			border: 2px solid rgba($purple, 0.3);
+			box-shadow: 0 4px 16px rgba($purple, 0.2);
+		}
+	}
+
+	h3 { color: #fff; font-size: 18px; font-weight: 700; margin: 0 0 8px; }
+	p { color: rgba(255, 255, 255, 0.5); font-size: 13px; margin: 0 0 18px; line-height: 1.5;
+		strong { color: rgba(255, 255, 255, 0.8); }
+	}
+
+	&__buttons { display: flex; flex-direction: column; gap: 8px; }
+}
+
+// === POPUP BUTTONS ===
+.popup-btn { width: 100%; padding: 12px; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; background: rgba(255, 255, 255, 0.06); color: #fff; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 8px;
+	&:active { transform: scale(0.98); }
+	&--danger { background: rgba(#f87171, 0.2); color: #f87171; border: 1px solid rgba(#f87171, 0.2); &:active { background: rgba(#f87171, 0.3); } }
+	&--purple { background: linear-gradient(135deg, rgba($purple, 0.6), rgba($purple, 0.8)); color: #fff; border: 1px solid rgba($white, 0.1); box-shadow: 0 4px 16px rgba($purple, 0.25);
+		&:active { background: linear-gradient(135deg, rgba($purple, 0.7), rgba($purple, 0.9)); }
+	}
+	&--ghost { background: transparent; color: rgba(255, 255, 255, 0.4); font-weight: 500;
+		&:active { color: rgba(255, 255, 255, 0.6); }
+	}
+}
+
+// === REPORT POPUP ===
 .popup-report { border-radius: 20px; overflow: hidden; background: rgba(20, 20, 40, 0.75); backdrop-filter: blur(40px) saturate(1.5); -webkit-backdrop-filter: blur(40px) saturate(1.5); border: 1px solid rgba(255, 255, 255, 0.15); box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5), inset 0 2px 0 rgba(255, 255, 255, 0.08); padding: 20px;
 	h3 { color: #fff; font-size: 18px; font-weight: 700; margin: 0 0 14px; text-align: center; }
 }
@@ -641,16 +767,11 @@ ul.friend_list > li { animation: friendCardSlideIn 0.4s ease-out both; position:
 	&::before { content: ''; width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.2); flex-shrink: 0; transition: all 0.2s ease; }
 	&.active::before { border-color: $purple; background: $purple; box-shadow: inset 0 0 0 3px rgba(20, 20, 40, 0.75); }
 }
-.popup-report-textarea textarea { width: 100%; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 10px 14px; color: #fff; font-size: 13px; outline: none; resize: none; transition: border-color 0.2s ease;
-	&::placeholder { color: rgba(255, 255, 255, 0.3); } &:focus { border-color: rgba($purple, 0.3); }
-}
+.popup-report-textarea textarea { width: 100%; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 10px 14px; color: #fff; font-size: 13px; outline: none; resize: none; &::placeholder { color: rgba(255, 255, 255, 0.3); } &:focus { border-color: rgba($purple, 0.3); } }
 .popup-report-warning { color: rgba(255, 255, 255, 0.5); font-size: 13px; text-align: center; margin: 0; }
 .popup-report-buttons { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
-.popup-btn { width: 100%; padding: 12px; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; background: rgba(255, 255, 255, 0.06); color: #fff; transition: all 0.2s ease;
-	&:active { transform: scale(0.98); }
-	&--danger { background: rgba(#f87171, 0.2); color: #f87171; border: 1px solid rgba(#f87171, 0.2); &:active { background: rgba(#f87171, 0.3); } }
-}
 
+// === TOAST ===
 .success-toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; background: rgba(20, 20, 40, 0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 12px 28px; color: #fff; font-size: 14px; font-weight: 600; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3); }
 .toast-pop-enter-active { transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1); }
 .toast-pop-leave-active { transition: all 0.2s ease-in; }

@@ -1,7 +1,5 @@
 <?php
-
 namespace App\Http\Controllers\Api;
-
 use App\Helpers\PaginationHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Relationship;

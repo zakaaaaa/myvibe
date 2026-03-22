@@ -133,6 +133,16 @@ const dashboardService = {
             }
         });
     },
+    // Saved Vibes
+    toggleSaveVibe(data) {
+        return apiClient.post('/api/saved-vibes', data);
+    },
+    getSavedVibes() {
+        return apiClient.get('/api/saved-vibes');
+    },
+    checkSavedVibe(vibeId) {
+        return apiClient.get('/api/saved-vibes/check/' + vibeId);
+    },
 };
 
 export default dashboardService;

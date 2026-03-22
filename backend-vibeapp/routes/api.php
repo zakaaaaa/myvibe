@@ -92,6 +92,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::delete('/messages/{messageId}', [MessagesController::class, 'deleteMessage']);
     Route::delete('/messages/conversation/{userId}', [MessagesController::class, 'deleteConversation']);
 
+    // Saved Vibes
+    Route::post("/saved-vibes", [\App\Http\Controllers\Api\SavedVibeController::class, "toggle"]);
+    Route::get("/saved-vibes", [\App\Http\Controllers\Api\SavedVibeController::class, "index"]);
+    Route::get("/saved-vibes/check/{vibeId}", [\App\Http\Controllers\Api\SavedVibeController::class, "check"]);
+
     Route::post('/follow/{user}', [FollowController::class, 'follow']);
     Route::post('/unfollow/{user}', [FollowController::class, 'unfollow']);
     Route::get('/followers/{user}', [FollowController::class, 'followers']);
