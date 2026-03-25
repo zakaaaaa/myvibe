@@ -13,14 +13,14 @@ PODS:
     - Capacitor
   - CapacitorClipboard (6.0.2):
     - Capacitor
-  - CapacitorCommunityAppleSignIn (7.0.0):
+  - CapacitorCommunityAppleSignIn (6.0.0):
     - Capacitor
   - CapacitorCordova (6.2.0)
   - CapacitorFilesystem (6.0.2):
     - Capacitor
-  - CapacitorFirebaseMessaging (7.0.0):
+  - CapacitorFirebaseMessaging (6.3.1):
     - Capacitor
-    - FirebaseMessaging (~> 11.7.0)
+    - FirebaseMessaging (~> 11.0)
   - CapacitorShare (6.0.3):
     - Capacitor
   - CodetrixStudioCapacitorGoogleAuth (0.0.1):
@@ -143,10 +143,10 @@ SPEC CHECKSUMS:
   CapacitorApp: 2a8c3a0b0814322e5e6e15fe595f02c3808f0f8b
   CapacitorCamera: 9052bd3f464f135ba983feccd8ac1266272f0549
   CapacitorClipboard: 55e0a514f1e97b1409d533266c119dcbff3e78c3
-  CapacitorCommunityAppleSignIn: 9f938324c6939545f001fa66a2eaaf3a93fda64e
+  CapacitorCommunityAppleSignIn: c8bba4ca8ff6ff843367ece13ee8af24e9266eb9
   CapacitorCordova: b33e7f4aa4ed105dd43283acdd940964374a87d9
   CapacitorFilesystem: c832a3f6d4870c3872688e782ae8e33665e6ecbf
-  CapacitorFirebaseMessaging: a6ecc4afc2086b492a6d928655a0d93a0d882de1
+  CapacitorFirebaseMessaging: 3b4ff762b42ad3137c911a96ec06bf8bfd6fb122
   CapacitorShare: 7af6ca761ce62030e8e9fbd2eb82416f5ceced38
   CodetrixStudioCapacitorGoogleAuth: fcce058390347c1ce5d8ac4764bdf1f5c1ee233b
   FirebaseCore: 3227e35f4197a924206fbcdc0349325baf4f5de4

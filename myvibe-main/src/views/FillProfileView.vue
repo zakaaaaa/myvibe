@@ -50,18 +50,22 @@
 					<div class="fp-input-row">
 						<div class="glass-input-group">
 							<label class="glass-label">MBTI <span class="optional">optional</span></label>
-							<div class="glass-select">
-								<VueSelect v-model="mbti_id" :options="optionsMBTI" :isClearable="false" placeholder="Your MBTI" />
+							<div class="glass-native-select">
+								<select v-model="mbti_id">
+									<option value="" disabled selected>Your MBTI</option>
+									<option v-for="opt in optionsMBTI" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+								</select>
+								<fa icon="chevron-down" class="glass-native-select__arrow" />
 							</div>
 						</div>
 						<div class="glass-input-group">
 							<label class="glass-label">Zodiac <span class="optional">optional</span></label>
-							<div class="glass-select">
-								<VueSelect v-model="zodiac_id" :options="optionsZodiac" :isClearable="false" placeholder="Your sign">
-									<template #option="{ option }">
-										{{ option.label }} <small>{{ option.description }}</small>
-									</template>
-								</VueSelect>
+							<div class="glass-native-select">
+								<select v-model="zodiac_id">
+									<option value="" disabled selected>Your sign</option>
+									<option v-for="opt in optionsZodiac" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+								</select>
+								<fa icon="chevron-down" class="glass-native-select__arrow" />
 							</div>
 						</div>
 					</div>
@@ -78,12 +82,12 @@
 					<!-- Relationship -->
 					<div class="glass-input-group">
 						<label class="glass-label">Relationship <span class="optional">optional</span></label>
-						<div class="glass-select">
-							<VueSelect v-model="relationship_id" :options="optionsRelationship" :isClearable="false" placeholder="Your status">
-								<template #option="{ option }">
-									{{ option.label }} <small>- {{ option.description }}</small>
-								</template>
-							</VueSelect>
+						<div class="glass-native-select">
+							<select v-model="relationship_id">
+								<option value="" disabled selected>Your status</option>
+								<option v-for="opt in optionsRelationship" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+							</select>
+							<fa icon="chevron-down" class="glass-native-select__arrow" />
 						</div>
 					</div>
 
@@ -196,14 +200,12 @@
 
 <script>
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
-import VueSelect from 'vue3-select-component';
 import authService from '@/services/authService';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import avatar from '@/assets/avatar.png';
 
 export default {
 	name: 'FillProfileView',
-	components: { VueSelect },
 	data() {
 		return {
 			optionsMBTI: [],
@@ -257,7 +259,7 @@ export default {
 				const response = await authService.getMBTI();
 				const data = response.data.data;
 				this.optionsMBTI = data.map((item) => ({
-					label: item.mbti_name + ' - ' + item.mbti_desc,
+					label: item.mbti_name,
 					value: item.id
 				}));
 			} catch (error) {
@@ -272,8 +274,7 @@ export default {
 				const data = response.data.data;
 				this.optionsZodiac = data.map((item) => ({
 					label: item.zodiac_name,
-					value: item.id,
-					description: item.zodiac_desc
+					value: item.id
 				}));
 			} catch (error) {
 				this.message = error.response.data.message;
@@ -287,8 +288,7 @@ export default {
 				const data = response.data.data;
 				this.optionsRelationship = data.map((item) => ({
 					label: item.relationship_name,
-					value: item.id,
-					description: item.relationship_desc
+					value: item.id
 				}));
 			} catch (error) {
 				this.message = error.response.data.message;
@@ -405,248 +405,71 @@ export default {
 @import '@/assets/scss/color.scss';
 
 // === BLOBS ===
-.fp-blob {
-	position: absolute;
-	filter: blur(50px);
-	pointer-events: none;
-	z-index: 0;
-}
-
-.fp-blob--1 {
-	top: -6%;
-	left: -12%;
-	width: min(300px, 68vw);
-	height: min(300px, 68vw);
-	background: radial-gradient(circle, rgba($purple, 0.3) 0%, rgba(#6c5ce7, 0.1) 40%, transparent 70%);
-	border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
-	animation: fpBlobMorph1 12s ease-in-out infinite;
-}
-
-.fp-blob--2 {
-	bottom: 3%;
-	right: -10%;
-	width: min(260px, 58vw);
-	height: min(260px, 58vw);
-	background: radial-gradient(circle, rgba(#4a3adf, 0.25) 0%, rgba($purple, 0.08) 40%, transparent 70%);
-	border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
-	animation: fpBlobMorph2 15s ease-in-out infinite;
-}
-
-.fp-blob--3 {
-	top: 40%;
-	left: 50%;
-	transform: translateX(-50%);
-	width: min(320px, 72vw);
-	height: min(160px, 36vw);
-	background: radial-gradient(ellipse, rgba($purple, 0.12) 0%, transparent 70%);
-	border-radius: 50%;
-	animation: fpBlobFloat 9s ease-in-out infinite;
-}
-
-@keyframes fpBlobMorph1 {
-	0%, 100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; transform: translate(0, 0) rotate(0deg); }
-	50% { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; transform: translate(12px, 16px) rotate(40deg); }
-}
-@keyframes fpBlobMorph2 {
-	0%, 100% { border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; transform: translate(0, 0) rotate(0deg); }
-	50% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; transform: translate(-14px, -12px) rotate(-40deg); }
-}
-@keyframes fpBlobFloat {
-	0%, 100% { transform: translateX(-50%) translateY(0) scale(1); opacity: 0.12; }
-	50% { transform: translateX(-50%) translateY(-16px) scale(1.05); opacity: 0.2; }
-}
+.fp-blob { position: absolute; filter: blur(50px); pointer-events: none; z-index: 0; }
+.fp-blob--1 { top: -6%; left: -12%; width: min(300px, 68vw); height: min(300px, 68vw); background: radial-gradient(circle, rgba($purple, 0.3) 0%, rgba(#6c5ce7, 0.1) 40%, transparent 70%); border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; animation: fpBlobMorph1 12s ease-in-out infinite; }
+.fp-blob--2 { bottom: 3%; right: -10%; width: min(260px, 58vw); height: min(260px, 58vw); background: radial-gradient(circle, rgba(#4a3adf, 0.25) 0%, rgba($purple, 0.08) 40%, transparent 70%); border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; animation: fpBlobMorph2 15s ease-in-out infinite; }
+.fp-blob--3 { top: 40%; left: 50%; transform: translateX(-50%); width: min(320px, 72vw); height: min(160px, 36vw); background: radial-gradient(ellipse, rgba($purple, 0.12) 0%, transparent 70%); border-radius: 50%; animation: fpBlobFloat 9s ease-in-out infinite; }
+@keyframes fpBlobMorph1 { 0%, 100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; transform: translate(0, 0) rotate(0deg); } 50% { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; transform: translate(12px, 16px) rotate(40deg); } }
+@keyframes fpBlobMorph2 { 0%, 100% { border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; transform: translate(0, 0) rotate(0deg); } 50% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; transform: translate(-14px, -12px) rotate(-40deg); } }
+@keyframes fpBlobFloat { 0%, 100% { transform: translateX(-50%) translateY(0) scale(1); opacity: 0.12; } 50% { transform: translateX(-50%) translateY(-16px) scale(1.05); opacity: 0.2; } }
 
 // === HEADER ===
-.fp-header {
-	text-align: center;
-	margin-bottom: 20px;
-	animation: fpSlideIn 0.6s ease-out both;
-}
-
-.fp-subtitle {
-	color: rgba($white1, 0.38);
-	font-size: 13px;
-	margin-top: 4px;
-}
+.fp-header { text-align: center; margin-bottom: 20px; animation: fpSlideIn 0.6s ease-out both; }
+.fp-subtitle { color: rgba($white1, 0.38); font-size: 13px; margin-top: 4px; }
 
 // === AVATAR SECTION ===
-.fp-avatar-section {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	margin-bottom: 20px;
-	cursor: pointer;
-	animation: fpSlideIn 0.6s ease-out 0.08s both;
+.fp-avatar-section { display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; cursor: pointer; animation: fpSlideIn 0.6s ease-out 0.08s both; }
+.fp-avatar-ring { width: 96px; height: 96px; border-radius: 50%; position: relative; background: rgba($white, 0.04); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 2px solid rgba($purple, 0.2); box-shadow: 0 6px 24px rgba($purple, 0.1), inset 0 1px 0 rgba($white, 0.06); transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1); padding: 4px;
+	&::before { content: ''; position: absolute; inset: -6px; border-radius: 50%; border: 1px solid rgba($purple, 0.1); animation: fpRingPulse 3s ease-in-out infinite; }
+	&::after { content: ''; position: absolute; top: 3px; left: 18%; right: 18%; height: 30%; background: linear-gradient(180deg, rgba($white, 0.12) 0%, transparent 100%); border-radius: 50%; pointer-events: none; }
+	&:hover { border-color: rgba($purple, 0.4); transform: scale(1.05); }
 }
-
-.fp-avatar-ring {
-	width: 96px;
-	height: 96px;
-	border-radius: 50%;
-	position: relative;
-	background: rgba($white, 0.04);
-	backdrop-filter: blur(16px);
-	-webkit-backdrop-filter: blur(16px);
-	border: 2px solid rgba($purple, 0.2);
-	box-shadow: 0 6px 24px rgba($purple, 0.1), inset 0 1px 0 rgba($white, 0.06);
-	transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
-	padding: 4px;
-
-	// Outer pulsing ring
-	&::before {
-		content: '';
-		position: absolute;
-		inset: -6px;
-		border-radius: 50%;
-		border: 1px solid rgba($purple, 0.1);
-		animation: fpRingPulse 3s ease-in-out infinite;
-	}
-
-	// Glass reflection
-	&::after {
-		content: '';
-		position: absolute;
-		top: 3px;
-		left: 18%;
-		right: 18%;
-		height: 30%;
-		background: linear-gradient(180deg, rgba($white, 0.12) 0%, transparent 100%);
-		border-radius: 50%;
-		pointer-events: none;
-	}
-
-	&:hover {
-		border-color: rgba($purple, 0.4);
-		transform: scale(1.05);
-		box-shadow: 0 8px 30px rgba($purple, 0.15), inset 0 1px 0 rgba($white, 0.08);
-	}
-}
-
-.fp-avatar-img {
-	width: 100%;
-	height: 100%;
-	border-radius: 50%;
-	overflow: hidden;
-	background: rgba(#1e1e21, 0.8);
-
-	img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
-}
-
-.fp-avatar-badge {
-	position: absolute;
-	bottom: 0;
-	right: 0;
-	width: 30px;
-	height: 30px;
-	border-radius: 50%;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 12px;
-	color: $white;
-	background: rgba($purple, 0.7);
-	backdrop-filter: blur(10px);
-	-webkit-backdrop-filter: blur(10px);
-	border: 2px solid rgba($background, 0.8);
-	box-shadow: 0 2px 8px rgba($purple, 0.3);
-}
-
-.fp-avatar-hint {
-	color: rgba($white1, 0.35);
-	font-size: 11px;
-	margin-top: 8px;
-}
-
-@keyframes fpRingPulse {
-	0%, 100% { opacity: 0.3; transform: scale(1); }
-	50% { opacity: 0.7; transform: scale(1.04); }
-}
+.fp-avatar-img { width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: rgba(#1e1e21, 0.8); img { width: 100%; height: 100%; object-fit: cover; } }
+.fp-avatar-badge { position: absolute; bottom: 0; right: 0; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: $white; background: rgba($purple, 0.7); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 2px solid rgba($background, 0.8); box-shadow: 0 2px 8px rgba($purple, 0.3); }
+.fp-avatar-hint { color: rgba($white1, 0.35); font-size: 11px; margin-top: 8px; }
+@keyframes fpRingPulse { 0%, 100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.04); } }
 
 // === GLASS CARD ===
-.fp-glass-card {
-	background: rgba($white, 0.03);
-	backdrop-filter: blur(20px);
-	-webkit-backdrop-filter: blur(20px);
-	border: 1px solid rgba($white, 0.07);
-	border-radius: 22px;
-	padding: 22px 18px 18px;
-	position: relative;
-	z-index: 1;
-	animation: fpSlideIn 0.6s ease-out 0.15s both;
-	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba($white, 0.05);
-
-	&::before {
-		content: '';
-		position: absolute;
-		top: 0; left: 0; right: 0;
-		height: 40%;
-		background: linear-gradient(180deg, rgba($white, 0.04) 0%, transparent 100%);
-		border-radius: 22px 22px 0 0;
-		pointer-events: none;
-	}
+.fp-glass-card { background: rgba($white, 0.03); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba($white, 0.07); border-radius: 22px; padding: 22px 18px 18px; position: relative; z-index: 1; animation: fpSlideIn 0.6s ease-out 0.15s both; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba($white, 0.05);
+	&::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 40%; background: linear-gradient(180deg, rgba($white, 0.04) 0%, transparent 100%); border-radius: 22px 22px 0 0; pointer-events: none; }
 }
-
-.fp-form {
-	position: relative;
-	z-index: 1;
-}
+.fp-form { position: relative; z-index: 1; }
 
 // === INPUT GROUPS ===
-.glass-input-group {
-	margin-bottom: 14px;
-	animation: fpSlideIn 0.5s ease-out both;
-
-	@for $i from 1 through 8 {
-		&:nth-child(#{$i}) {
-			animation-delay: #{0.05 * $i + 0.15}s;
-		}
+.glass-input-group { margin-bottom: 14px; animation: fpSlideIn 0.5s ease-out both;
+	@for $i from 1 through 8 { &:nth-child(#{$i}) { animation-delay: #{0.05 * $i + 0.15}s; } }
+}
+.fp-input-row { display: flex; gap: 10px;
+	.glass-input-group { flex: 1; min-width: 0; }
+}
+.glass-label { display: block; font-size: 12px; font-weight: 500; color: rgba($white1, 0.5); margin-bottom: 5px; padding-left: 4px; letter-spacing: 0.3px;
+	.optional { font-size: 10px; font-weight: 400; color: rgba($white1, 0.3); font-style: italic; }
+}
+.glass-input { display: flex; align-items: center; background: rgba($white, 0.035); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba($white, 0.07); border-radius: 14px; padding: 0 14px; min-height: 46px; transition: all 0.35s cubic-bezier(0.23, 1, 0.32, 1); position: relative; box-shadow: inset 0 1px 0 rgba($white, 0.04), 0 2px 10px rgba(0, 0, 0, 0.08);
+	&::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 50%; background: linear-gradient(180deg, rgba($white, 0.025) 0%, transparent 100%); border-radius: 14px 14px 0 0; pointer-events: none; }
+	&:focus-within { border-color: rgba($purple, 0.35); background: rgba($white, 0.05); box-shadow: 0 0 0 3px rgba($purple, 0.06), inset 0 1px 0 rgba($white, 0.06), 0 4px 20px rgba(0, 0, 0, 0.12); transform: translateY(-1px);
+		.glass-input__icon { color: $purple; }
+	}
+	&__icon { color: rgba($white, 0.28); font-size: 13px; margin-right: 10px; transition: all 0.3s ease; flex-shrink: 0; }
+	input { flex: 1; background: transparent; border: none; outline: none; color: $white1; font-size: 14px; font-family: inherit; min-width: 0; padding: 0;
+		&::placeholder { color: rgba($white, 0.22); font-size: 12px; font-weight: 300; }
 	}
 }
 
-.fp-input-row {
-	display: flex;
-	gap: 10px;
-
-	.glass-input-group {
-		flex: 1;
-		min-width: 0;
-	}
-}
-
-.glass-label {
-	display: block;
-	font-size: 12px;
-	font-weight: 500;
-	color: rgba($white1, 0.5);
-	margin-bottom: 5px;
-	padding-left: 4px;
-	letter-spacing: 0.3px;
-
-	.optional {
-		font-size: 10px;
-		font-weight: 400;
-		color: rgba($white1, 0.3);
-		font-style: italic;
-	}
-}
-
-.glass-input {
-	display: flex;
-	align-items: center;
+// === NATIVE SELECT (iOS picker) ===
+.glass-native-select {
+	position: relative;
 	background: rgba($white, 0.035);
 	backdrop-filter: blur(16px);
 	-webkit-backdrop-filter: blur(16px);
 	border: 1px solid rgba($white, 0.07);
 	border-radius: 14px;
-	padding: 0 14px;
 	min-height: 46px;
-	transition: all 0.35s cubic-bezier(0.23, 1, 0.32, 1);
-	position: relative;
+	display: flex;
+	align-items: center;
 	box-shadow: inset 0 1px 0 rgba($white, 0.04), 0 2px 10px rgba(0, 0, 0, 0.08);
+	transition: all 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+	overflow: hidden;
 
 	&::before {
 		content: '';
@@ -658,219 +481,69 @@ export default {
 		pointer-events: none;
 	}
 
-	&:focus-within {
-		border-color: rgba($purple, 0.35);
-		background: rgba($white, 0.05);
-		box-shadow: 0 0 0 3px rgba($purple, 0.06), inset 0 1px 0 rgba($white, 0.06), 0 4px 20px rgba(0, 0, 0, 0.12);
-		transform: translateY(-1px);
-		.glass-input__icon { color: $purple; }
-	}
-
-	&__icon {
-		color: rgba($white, 0.28);
-		font-size: 13px;
-		margin-right: 10px;
-		transition: all 0.3s ease;
-		flex-shrink: 0;
-	}
-
-	input {
-		flex: 1;
+	select {
+		width: 100%;
+		height: 46px;
 		background: transparent;
 		border: none;
 		outline: none;
 		color: $white1;
-		font-size: 14px;
+		font-size: 13px;
 		font-family: inherit;
-		min-width: 0;
-		padding: 0;
+		padding: 0 36px 0 14px;
+		-webkit-appearance: none;
+		-moz-appearance: none;
+		appearance: none;
+		cursor: pointer;
+		position: relative;
+		z-index: 1;
 
-		&::placeholder {
+		option {
+			background: #1e1e2e;
+			color: $white1;
+		}
+
+		// Placeholder style (disabled selected option)
+		&:invalid,
+		& option[value=""][disabled] {
 			color: rgba($white, 0.22);
-			font-size: 12px;
-			font-weight: 300;
 		}
 	}
-}
 
-// === GLASS SELECT (VueSelect wrapper) ===
-.glass-select {
-	:deep(.vue-select) {
-		.control {
-			border: 1px solid rgba($white, 0.07) !important;
-			min-height: 46px;
-			background: rgba($white, 0.035) !important;
-			backdrop-filter: blur(16px);
-			-webkit-backdrop-filter: blur(16px);
-			color: $white1;
-			outline: none !important;
-			box-shadow: inset 0 1px 0 rgba($white, 0.04), 0 2px 10px rgba(0, 0, 0, 0.08) !important;
-			border-radius: 14px !important;
-			transition: all 0.3s ease;
+	&__arrow {
+		position: absolute;
+		right: 14px;
+		top: 50%;
+		transform: translateY(-50%);
+		color: rgba($white, 0.3);
+		font-size: 11px;
+		pointer-events: none;
+		z-index: 2;
+	}
 
-			&:focus-within {
-				border-color: rgba($purple, 0.35) !important;
-				box-shadow: 0 0 0 3px rgba($purple, 0.06), 0 4px 20px rgba(0, 0, 0, 0.12) !important;
-			}
-
-			.value-container {
-				.single-value {
-					color: $white1;
-					font-size: 13px;
-					display: -webkit-box;
-					max-width: 90%;
-					white-space: pre-wrap;
-					word-break: keep-all;
-					text-overflow: ellipsis;
-					overflow: hidden;
-					-webkit-line-clamp: 1;
-					-webkit-box-orient: vertical;
-				}
-
-				.search-input {
-					color: $white1;
-					font-size: 13px;
-					&::placeholder {
-						color: rgba($white, 0.22);
-						font-size: 12px;
-						font-style: italic;
-					}
-				}
-			}
-
-			.indicators-container {
-				.dropdown-icon {
-					color: rgba($white, 0.3);
-				}
-			}
-		}
-
-		.menu {
-			border: 1px solid rgba($white, 0.08) !important;
-			background: rgba(30, 30, 31, 0.92) !important;
-			backdrop-filter: blur(20px);
-			-webkit-backdrop-filter: blur(20px);
-			box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba($white, 0.05) !important;
-			border-radius: 12px !important;
-
-			.menu-option {
-				display: flex;
-				align-items: baseline;
-				flex-wrap: wrap;
-				background: transparent;
-				color: $white1;
-				border-bottom: 1px solid rgba($white, 0.05);
-				transition: background 0.2s ease;
-				font-size: 13px;
-
-				small {
-					font-size: 10px;
-					font-weight: 300;
-					margin-left: 5px;
-					color: rgba($white, 0.4);
-				}
-
-				&:hover { background: rgba($purple, 0.1); }
-				&:last-child { border: none; }
-			}
-		}
+	&:focus-within {
+		border-color: rgba($purple, 0.35);
+		background: rgba($white, 0.05);
+		box-shadow: 0 0 0 3px rgba($purple, 0.06), inset 0 1px 0 rgba($white, 0.06), 0 4px 20px rgba(0, 0, 0, 0.12);
 	}
 }
 
 // === ACTIONS ===
-.fp-actions {
-	margin-top: 18px;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 14px;
-	animation: fpSlideIn 0.6s ease-out 0.5s both;
-}
-
-.glass-checkbox {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	cursor: pointer;
-	font-size: 12px;
-	color: rgba($white1, 0.55);
-	padding: 8px 16px;
-	border-radius: 12px;
-	background: rgba($white, 0.02);
-	border: 1px solid rgba($white, 0.05);
-	transition: all 0.3s ease;
-
-	&:hover {
-		border-color: rgba($purple, 0.15);
-		background: rgba($purple, 0.04);
-	}
-
-	.form-check-input {
-		width: 18px;
-		height: 18px;
-		background: rgba($background_second, 0.6);
-		border: 1px solid rgba($white, 0.15);
-		border-radius: 5px;
-		flex-shrink: 0;
-		&:checked { background-color: $purple; border-color: $purple; }
-	}
-
+.fp-actions { margin-top: 18px; display: flex; flex-direction: column; align-items: center; gap: 14px; animation: fpSlideIn 0.6s ease-out 0.5s both; }
+.glass-checkbox { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 12px; color: rgba($white1, 0.55); padding: 8px 16px; border-radius: 12px; background: rgba($white, 0.02); border: 1px solid rgba($white, 0.05); transition: all 0.3s ease;
+	&:hover { border-color: rgba($purple, 0.15); background: rgba($purple, 0.04); }
+	.form-check-input { width: 18px; height: 18px; background: rgba($background_second, 0.6); border: 1px solid rgba($white, 0.15); border-radius: 5px; flex-shrink: 0; &:checked { background-color: $purple; border-color: $purple; } }
 	label { cursor: pointer; }
 	span { color: $purple; text-decoration: underline; font-weight: 500; }
 }
-
-.btn-center {
-	display: flex;
-	justify-content: center;
-	width: 100%;
-}
-
-.btn-allset {
-	position: relative;
-	overflow: hidden;
-	width: 100%;
-	max-width: 350px;
-	background: linear-gradient(135deg, rgba($purple, 0.65) 0%, rgba($purple, 0.85) 50%, rgba(#5a4dd6, 0.75) 100%) !important;
-	backdrop-filter: blur(20px);
-	-webkit-backdrop-filter: blur(20px);
-	border: 1px solid rgba($white, 0.12) !important;
-	box-shadow: 0 8px 28px rgba($purple, 0.2), inset 0 1px 0 rgba($white, 0.18);
-	transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
-
-	&::after {
-		content: '';
-		position: absolute;
-		top: 0; left: 0; right: 0;
-		height: 50%;
-		background: linear-gradient(180deg, rgba($white, 0.12) 0%, transparent 100%);
-		border-radius: 30px 30px 0 0;
-		pointer-events: none;
-	}
-
-	&::before {
-		content: '';
-		position: absolute;
-		top: 0;
-		left: -100%;
-		width: 100%;
-		height: 100%;
-		background: linear-gradient(90deg, transparent, rgba($white, 0.12), transparent);
-		transition: left 0.6s ease;
-		z-index: 1;
-	}
-
-	&:not(:disabled):hover {
-		transform: translateY(-3px);
-		box-shadow: 0 14px 40px rgba($purple, 0.3), inset 0 1px 0 rgba($white, 0.22), 0 0 25px rgba($purple, 0.12);
-		&::before { left: 100%; }
-	}
-
+.btn-center { display: flex; justify-content: center; width: 100%; }
+.btn-allset { position: relative; overflow: hidden; width: 100%; max-width: 350px; background: linear-gradient(135deg, rgba($purple, 0.65) 0%, rgba($purple, 0.85) 50%, rgba(#5a4dd6, 0.75) 100%) !important; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba($white, 0.12) !important; box-shadow: 0 8px 28px rgba($purple, 0.2), inset 0 1px 0 rgba($white, 0.18); transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+	&::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 50%; background: linear-gradient(180deg, rgba($white, 0.12) 0%, transparent 100%); border-radius: 30px 30px 0 0; pointer-events: none; }
+	&::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba($white, 0.12), transparent); transition: left 0.6s ease; z-index: 1; }
+	&:not(:disabled):hover { transform: translateY(-3px); box-shadow: 0 14px 40px rgba($purple, 0.3), inset 0 1px 0 rgba($white, 0.22), 0 0 25px rgba($purple, 0.12); &::before { left: 100%; } }
 	&:not(:disabled):active { transform: translateY(-1px) scale(0.98); }
 	&:disabled { opacity: 0.35; cursor: not-allowed; }
 }
 
-@keyframes fpSlideIn {
-	from { opacity: 0; transform: translateY(20px); }
-	to { opacity: 1; transform: translateY(0); }
-}
+@keyframes fpSlideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 </style>
