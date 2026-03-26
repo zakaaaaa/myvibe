@@ -55,14 +55,19 @@ workflows:
           echo $CERTIFICATE_PRIVATE_KEY | base64 --decode > /tmp/certificate.p12
           keychain add-certificates --certificate /tmp/certificate.p12 --certificate-password $P12_PASSWORD
 
-          # Create API key for automatic signing
+          # Write API key preserving newlines
           mkdir -p ~/.private_keys
-          echo "$APP_STORE_CONNECT_PRIVATE_KEY" > ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
+          printf '%s\n' "$APP_STORE_CONNECT_PRIVATE_KEY" > ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
+
+          # Verify key file
+          echo "--- Key file contents check ---"
+          head -1 ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
+          wc -l ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
+          echo "--- End check ---"
 
       - name: Set up Xcode project settings
         script: |
           cd myvibe-main/ios/App
-          # Use automatic signing with team ID
           sed -i '' 's/CODE_SIGN_STYLE = Manual/CODE_SIGN_STYLE = Automatic/g' App.xcodeproj/project.pbxproj
           sed -i '' "s/DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM = $TEAM_ID;/g" App.xcodeproj/project.pbxproj
 
@@ -82,25 +87,24 @@ workflows:
             -archivePath build/App.xcarchive \
             -destination 'generic/platform=iOS' \
             -allowProvisioningUpdates \
-            -authenticationKeyPath ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
-            -authenticationKeyID $APP_STORE_CONNECT_KEY_IDENTIFIER \
-            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID \
-            DEVELOPMENT_TEAM=$TEAM_ID \
+            -authenticationKeyPath "$HOME/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8" \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
             CODE_SIGN_STYLE=Automatic \
             archive
 
       - name: Export IPA
         script: |
           cd myvibe-main/ios/App
-          cat > /tmp/ExportOptions.plist << EOF
+
+          cat > /tmp/ExportOptions.plist << 'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
             <key>method</key>
             <string>app-store-connect</string>
-            <key>teamID</key>
-            <string>$TEAM_ID</string>
             <key>signingStyle</key>
             <string>automatic</string>
             <key>uploadBitcode</key>
@@ -109,16 +113,19 @@ workflows:
             <true/>
           </dict>
           </plist>
-          EOF
+          PLIST
+
+          # Insert actual team ID
+          sed -i '' "s|</dict>|  <key>teamID</key>\n    <string>$TEAM_ID</string>\n</dict>|" /tmp/ExportOptions.plist
 
           xcodebuild -exportArchive \
             -archivePath build/App.xcarchive \
             -exportOptionsPlist /tmp/ExportOptions.plist \
             -exportPath build/ipa \
             -allowProvisioningUpdates \
-            -authenticationKeyPath ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
-            -authenticationKeyID $APP_STORE_CONNECT_KEY_IDENTIFIER \
-            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID
+            -authenticationKeyPath "$HOME/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8" \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
 
       - name: Upload to TestFlight
         script: |
@@ -126,8 +133,8 @@ workflows:
           xcrun altool --upload-app \
             -f "$APP_FILE" \
             -t ios \
-            --apiKey $APP_STORE_CONNECT_KEY_IDENTIFIER \
-            --apiIssuer $APP_STORE_CONNECT_ISSUER_ID
+            --apiKey "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
 
     artifacts:
       - myvibe-main/ios/App/build/ipa/*.ipa
