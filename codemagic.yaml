@@ -47,9 +47,8 @@ workflows:
           cd myvibe-main/ios/App
           pod install
 
-      - name: Set up manual code signing
+      - name: Set up code signing
         script: |
-          # Create keychain
           KEYCHAIN_PATH="$HOME/Library/Keychains/build.keychain-db"
           KEYCHAIN_PASSWORD="temporary"
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
@@ -57,53 +56,75 @@ workflows:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain-db
 
-          # Import distribution certificate
           echo "$CERTIFICATE_PRIVATE_KEY" | base64 --decode > /tmp/cert.p12
           security import /tmp/cert.p12 -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
-          # Install provisioning profile
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > /tmp/profile.mobileprovision
-
-          # Get UUID from profile
           PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(security cms -D -i /tmp/profile.mobileprovision))
-          echo "Profile UUID: $PROFILE_UUID"
           cp /tmp/profile.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/${PROFILE_UUID}.mobileprovision"
 
-          # Verify
-          echo "Installed profiles:"
-          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/"
-          echo "Keychain certificates:"
+          echo "Profile UUID: $PROFILE_UUID"
           security find-identity -v -p codesigning "$KEYCHAIN_PATH"
 
-      - name: Set up Xcode project for manual signing
+      - name: Configure signing for App target only
         script: |
           cd myvibe-main/ios/App
 
-          # Get profile UUID
           PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(security cms -D -i /tmp/profile.mobileprovision))
 
-          # Get signing identity name
-          SIGNING_IDENTITY=$(security find-identity -v -p codesigning "$HOME/Library/Keychains/build.keychain-db" | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          echo "Signing identity: $SIGNING_IDENTITY"
-          echo "Profile UUID: $PROFILE_UUID"
+          python3 << 'PYEOF'
+          import re, sys
 
-          # Update project to manual signing
-          ruby -e "
-            content = File.read('App.xcodeproj/project.pbxproj')
-            content.gsub!(/CODE_SIGN_STYLE = .*;/, 'CODE_SIGN_STYLE = Manual;')
-            content.gsub!(/DEVELOPMENT_TEAM = .*;/, 'DEVELOPMENT_TEAM = $TEAM_ID;')
-            content.gsub!(/PROVISIONING_PROFILE_SPECIFIER = .*;/, 'PROVISIONING_PROFILE_SPECIFIER = \"MyVibe AppStore\";')
-            content.gsub!(/\"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]\" = .*;/, '\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"Apple Distribution\";')
+          with open('App.xcodeproj/project.pbxproj', 'r') as f:
+              content = f.read()
 
-            # Add provisioning profile if not present
-            unless content.include?('PROVISIONING_PROFILE_SPECIFIER')
-              content.gsub!(/DEVELOPMENT_TEAM = $TEAM_ID;/) { |m| m + \"\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \\\"MyVibe AppStore\\\";\" }
-            end
+          # Find all build configuration sections for the App target
+          # We need to set manual signing only where PRODUCT_BUNDLE_IDENTIFIER = co.myibe.app
+          # Replace CODE_SIGN_STYLE only near PRODUCT_BUNDLE_IDENTIFIER lines
+          lines = content.split('\n')
+          new_lines = []
+          i = 0
+          while i < len(lines):
+              line = lines[i]
+              new_lines.append(line)
 
-            File.write('App.xcodeproj/project.pbxproj', content)
-          "
+              # When we find bundle ID for our app, inject signing settings after it
+              if 'PRODUCT_BUNDLE_IDENTIFIER' in line and 'co.myibe.app' in line:
+                  # Check if CODE_SIGN_STYLE already exists nearby (within next 5 lines)
+                  has_sign_style = False
+                  for j in range(i+1, min(i+6, len(lines))):
+                      if 'CODE_SIGN_STYLE' in lines[j]:
+                          has_sign_style = True
+                          break
+
+                  if not has_sign_style:
+                      indent = '\t\t\t\t'
+                      new_lines.append(f'{indent}CODE_SIGN_STYLE = Manual;')
+                      new_lines.append(f'{indent}"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";')
+                      new_lines.append(f'{indent}PROVISIONING_PROFILE_SPECIFIER = "MyVibe AppStore";')
+
+              # Replace existing CODE_SIGN_STYLE for App target sections
+              # (identified by being near PRODUCT_BUNDLE_IDENTIFIER = co.myibe.app)
+              i += 1
+
+          content = '\n'.join(new_lines)
+
+          # Also replace any existing CODE_SIGN_STYLE = Automatic that's in App target
+          # We do this by finding blocks that contain co.myibe.app
+          content = re.sub(
+              r'(PRODUCT_BUNDLE_IDENTIFIER = co\.myibe\.app;.*?)(CODE_SIGN_STYLE = )Automatic;',
+              r'\1\2Manual;',
+              content,
+              flags=re.DOTALL
+          )
+
+          with open('App.xcodeproj/project.pbxproj', 'w') as f:
+              f.write(content)
+
+          print("Done configuring App target signing")
+          PYEOF
 
       - name: Set version number
         script: |
@@ -116,27 +137,19 @@ workflows:
         script: |
           cd myvibe-main/ios/App
 
-          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(security cms -D -i /tmp/profile.mobileprovision))
-
           xcodebuild -workspace App.xcworkspace \
             -scheme App \
             -configuration Release \
             -archivePath build/App.xcarchive \
             -destination 'generic/platform=iOS' \
-            CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM="$TEAM_ID" \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE="$PROFILE_UUID" \
-            PROVISIONING_PROFILE_SPECIFIER="MyVibe AppStore" \
             archive
 
       - name: Export IPA
         script: |
           cd myvibe-main/ios/App
 
-          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(security cms -D -i /tmp/profile.mobileprovision))
-
-          cat > /tmp/ExportOptions.plist << EOF
+          cat > /tmp/ExportOptions.plist << PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -160,7 +173,7 @@ workflows:
             <true/>
           </dict>
           </plist>
-          EOF
+          PLIST
 
           xcodebuild -exportArchive \
             -archivePath build/App.xcarchive \
