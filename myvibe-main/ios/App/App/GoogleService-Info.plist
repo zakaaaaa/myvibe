@@ -2,18 +2,22 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CLIENT_ID</key>
+	<string>12107287082-ep4tlld019vfl0m0dn6nlgtk3ot66pc4.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.12107287082-ep4tlld019vfl0m0dn6nlgtk3ot66pc4</string>
 	<key>API_KEY</key>
-	<string>AIzaSyB_5Gehk7WN_viHkoNBKhM2E4ulmw3YmsA</string>
+	<string>AIzaSyAhw0LLiXMpPO6UP1arqn8NSK4aqxDCHqs</string>
 	<key>GCM_SENDER_ID</key>
-	<string>383379717528</string>
+	<string>12107287082</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.myvibecommunity.app</string>
+	<string>co.myibe.app</string>
 	<key>PROJECT_ID</key>
-	<string>vibe-8222d</string>
+	<string>myvibe-app-51d7f</string>
 	<key>STORAGE_BUCKET</key>
-	<string>vibe-8222d.firebasestorage.app</string>
+	<string>myvibe-app-51d7f.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -25,6 +29,8 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:383379717528:ios:9e264dcc39ff0a6729ffed</string>
+	<string>1:12107287082:ios:68930215901ee637ed5153</string>
+	<key>DATABASE_URL</key>
+	<string>https://myvibe-app-51d7f-default-rtdb.asia-southeast1.firebasedatabase.app</string>
 </dict>
 </plist>

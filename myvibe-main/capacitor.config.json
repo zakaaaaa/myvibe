@@ -1,11 +1,14 @@
 {
-  "appId": "com.myvibecommunity.app",
+  "appId": "co.myibe.app",
   "appName": "MyVibe",
   "webDir": "dist",
   "bundledWebRuntime": false,
   "server": {
     "androidScheme": "https",
     "iosScheme": "https"
+  },
+  "ios": {
+    "allowsBackForwardNavigationGestures": true
   },
   "plugins": {
     "App": {
@@ -33,6 +36,7 @@
         "email"
       ],
       "serverClientId": "46760281130-718s2v8sbmtiu3h1ak5c2shchucfak8k.apps.googleusercontent.com",
+      "iosClientId": "383379717528-REPLACE_WITH_YOUR_IOS_CLIENT_ID.apps.googleusercontent.com",
       "forceCodeForRefreshToken": true
     },
     "SplashScreen": {
@@ -44,7 +48,5 @@
     }
   },
   "icon": "assets/icon.png",
-  "splash": "assets/splash.png",
-  "androidClientId": "46738324149-sh3r3ko6d7rqicr5uvjnmt69f32tq8lv.apps.googleusercontent.com",
-  "iosClientId": "46738324149-jgo4297c9p82210kjtfht3t811toluao.apps.googleusercontent.com"
+  "splash": "assets/splash.png"
 }

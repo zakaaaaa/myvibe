@@ -156,7 +156,7 @@ export default {
 		const isMobile = Capacitor.isNativePlatform();
 		if (isMobile) {
 			GoogleAuth.initialize({
-				clientId: '46760281130-718s2v8sbmtiu3h1ak5c2shchucfak8k.apps.googleusercontent.com',
+				clientId: '12107287082-ep4tlld019vfl0m0dn6nlgtk3ot66pc4.apps.googleusercontent.com',
 				scopes: ['profile', 'email'],
 				grantOfflineAccess: true
 			});
@@ -177,14 +177,23 @@ export default {
 			if (isMobile) {
 				GoogleAuth.signIn()
 					.then((response) => {
-						const responseGoogle = response;
+						console.log('[Google Sign In] Response:', JSON.stringify(response));
+						const responseGoogle = {
+							name: response.displayName || response.name || '',
+							email: response.email || ''
+						};
 						this.completeLogin(responseGoogle);
 					})
 					.catch((error) => {
+						console.error('[Google Sign In] Error:', JSON.stringify(error));
 						this.loadingGoogle = false;
+						// User cancelled - don't show error modal
+						if (error.error === 'popup_closed_by_user' || error.error === 'access_denied') {
+							return;
+						}
 						this.titleNotif = 'Login';
 						this.titleNotifSecond = 'Failed';
-						this.message = 'Looks like something went wrong when you tried to log in';
+						this.message = 'Google Sign In failed. Please try again.';
 						this.showLink = false;
 						this.showDismiss = true;
 						this.showNotifModal();
@@ -209,16 +218,23 @@ export default {
 		async signInApple() {
 			this.loadingApple = true;
 			try {
-				const response = await SignInWithApple.authorize({
-					clientId: 'co.myvibe.app',
+				const options = {
+					clientId: 'co.myibe.app',
 					redirectURI: 'https://myvibeapp.site/dashboard',
 					scopes: 'email name'
-				});
+				};
+				console.log('[Apple Sign In] Starting with options:', JSON.stringify(options));
+				const response = await SignInWithApple.authorize(options);
+				console.log('[Apple Sign In] Response received:', JSON.stringify(response));
+				const givenName = response.response.givenName || '';
+				const familyName = response.response.familyName || '';
+				const fullName = [givenName, familyName].filter(Boolean).join(' ');
 				const responseNew = {
-					name: `${response.response.givenName} ${response.response.familyName}`,
-					email: response.response.email,
+					name: fullName || null,
+					email: response.response.email || null,
 					user: response.response.user
 				};
+				console.log('[Apple Sign In] Processed data:', JSON.stringify(responseNew));
 				this.completeLoginApple(responseNew);
 			} catch (error) {
 				this.loadingApple = false;
@@ -233,18 +249,13 @@ export default {
 
 		async completeLoginApple(data) {
 			try {
-				let responseApi = '';
-				if (!data.email) {
-					responseApi = await authService.loginGoogle({
-						user_apple_id: data.user
-					});
-				} else {
-					responseApi = await authService.loginGoogle({
-						name: data.name,
-						email: data.email,
-						user_apple_id: data.user
-					});
-				}
+				let payload = { user_apple_id: data.user };
+				// Apple only sends name/email on FIRST sign-in
+				if (data.email) payload.email = data.email;
+				if (data.name) payload.name = data.name;
+				
+				console.log('[Apple Login] Sending to API:', JSON.stringify(payload));
+				const responseApi = await authService.loginGoogle(payload);
 				if (responseApi.data && responseApi.data.token) {
 					const token = responseApi.data.token;
 					localStorage.setItem('token', token);

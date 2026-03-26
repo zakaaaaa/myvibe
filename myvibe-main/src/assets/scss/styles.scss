@@ -253,8 +253,26 @@ html {
         font-size: 42px;
         color: $white1
     }
-}
 
+}
+    body.native-app {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+ 
+/* Re-enable for form elements where users need to select/edit text */
+body.native-app input,
+body.native-app textarea,
+body.native-app [contenteditable="true"] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
 @import "landing";
 @import "dashboard";
 @import "vibes";

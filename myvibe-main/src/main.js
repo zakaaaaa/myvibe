@@ -11,15 +11,20 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { fas } from '@fortawesome/free-solid-svg-icons';
 import { far } from '@fortawesome/free-regular-svg-icons';
 import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 
 import vue3GoogleLogin from 'vue3-google-login'
 
 library.add(fas, far);
 
 createApp(App).component('fa', FontAwesomeIcon).use(vue3GoogleLogin, {
-    clientId: '46760281130-718s2v8sbmtiu3h1ak5c2shchucfak8k.apps.googleusercontent.com'
+    clientId: '12107287082-ep4tlld019vfl0m0dn6nlgtk3ot66pc4.apps.googleusercontent.com'
 }).use(firebasePlugin).use(store).use(router).mount('#myVibeApps');
 
+// Disable text selection on native app
+if (Capacitor.isNativePlatform()) {
+    document.body.classList.add('native-app');
+}
 
 CapacitorApp.addListener('appUrlOpen', (event) => {
     const url = new URL(event.url);
