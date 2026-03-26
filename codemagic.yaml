@@ -59,12 +59,9 @@ workflows:
           mkdir -p ~/.private_keys
           echo "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 --decode > ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
 
-          # Verify key file is valid PEM
-          echo "--- Key file verify ---"
-          head -1 ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
-          tail -1 ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
-          wc -l ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
-          echo "--- End verify ---"
+          # Also place in default xcodebuild auth key location
+          mkdir -p ~/private_keys
+          cp ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 ~/private_keys/
 
       - name: Set up Xcode project settings
         script: |
@@ -79,35 +76,34 @@ workflows:
           LATEST_BUILD=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID" || echo "0")
           agvtool new-version -all $(($LATEST_BUILD + 1))
 
-      - name: Build iOS archive
+      - name: Build and archive
         script: |
           cd myvibe-main/ios/App
+
+          API_KEY_PATH="$HOME/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
+
+          # Archive
           xcodebuild -workspace App.xcworkspace \
             -scheme App \
             -configuration Release \
             -archivePath build/App.xcarchive \
             -destination 'generic/platform=iOS' \
             -allowProvisioningUpdates \
-            -authenticationKeyPath "$HOME/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8" \
+            -authenticationKeyPath "$API_KEY_PATH" \
             -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
             -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
             DEVELOPMENT_TEAM="$TEAM_ID" \
             CODE_SIGN_STYLE=Automatic \
             archive
 
-      - name: Export IPA
-        script: |
-          cd myvibe-main/ios/App
-
-          cat > /tmp/ExportOptions.plist << PLIST
+          # Export IPA using same auth for cloud signing
+          cat > /tmp/ExportOptions.plist << 'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
             <key>method</key>
             <string>app-store-connect</string>
-            <key>teamID</key>
-            <string>${TEAM_ID}</string>
             <key>signingStyle</key>
             <string>automatic</string>
             <key>uploadBitcode</key>
@@ -123,13 +119,21 @@ workflows:
             -exportOptionsPlist /tmp/ExportOptions.plist \
             -exportPath build/ipa \
             -allowProvisioningUpdates \
-            -authenticationKeyPath "$HOME/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8" \
+            -authenticationKeyPath "$API_KEY_PATH" \
             -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
             -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
 
-      - name: Upload to TestFlight
+      - name: Upload to App Store Connect
         script: |
           APP_FILE=$(find myvibe-main/ios/App/build/ipa -name "*.ipa" | head -1)
+          echo "Uploading: $APP_FILE"
+
+          xcrun notarytool submit "$APP_FILE" \
+            --key "$HOME/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8" \
+            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --issuer "$APP_STORE_CONNECT_ISSUER_ID" \
+            --wait 2>/dev/null || true
+
           xcrun altool --upload-app \
             -f "$APP_FILE" \
             -t ios \
