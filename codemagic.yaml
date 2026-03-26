@@ -15,9 +15,6 @@ workflows:
       node: 18
       xcode: latest
       cocoapods: default
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: co.myibe.app
     triggering:
       events:
         - push
@@ -53,15 +50,21 @@ workflows:
       - name: Set up code signing
         script: |
           keychain initialize
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --create
-          keychain add-certificates
+
+          # Decode and import certificate
+          echo $CERTIFICATE_PRIVATE_KEY | base64 --decode > /tmp/certificate.p12
+          keychain add-certificates --certificate /tmp/certificate.p12 --certificate-password $P12_PASSWORD
+
+          # Create API key for automatic signing
+          mkdir -p ~/.private_keys
+          echo "$APP_STORE_CONNECT_PRIVATE_KEY" > ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
 
       - name: Set up Xcode project settings
         script: |
           cd myvibe-main/ios/App
-          xcode-project use-profiles
+          # Use automatic signing with team ID
+          sed -i '' 's/CODE_SIGN_STYLE = Manual/CODE_SIGN_STYLE = Automatic/g' App.xcodeproj/project.pbxproj
+          sed -i '' "s/DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM = $TEAM_ID;/g" App.xcodeproj/project.pbxproj
 
       - name: Set version number
         script: |
@@ -73,16 +76,58 @@ workflows:
       - name: Build iOS archive
         script: |
           cd myvibe-main/ios/App
-          xcode-project build-ipa \
-            --workspace App.xcworkspace \
-            --scheme App
+          xcodebuild -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -archivePath build/App.xcarchive \
+            -destination 'generic/platform=iOS' \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
+            -authenticationKeyID $APP_STORE_CONNECT_KEY_IDENTIFIER \
+            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID \
+            DEVELOPMENT_TEAM=$TEAM_ID \
+            CODE_SIGN_STYLE=Automatic \
+            archive
+
+      - name: Export IPA
+        script: |
+          cd myvibe-main/ios/App
+          cat > /tmp/ExportOptions.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>teamID</key>
+            <string>$TEAM_ID</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+
+          xcodebuild -exportArchive \
+            -archivePath build/App.xcarchive \
+            -exportOptionsPlist /tmp/ExportOptions.plist \
+            -exportPath build/ipa \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
+            -authenticationKeyID $APP_STORE_CONNECT_KEY_IDENTIFIER \
+            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID
+
+      - name: Upload to TestFlight
+        script: |
+          APP_FILE=$(find myvibe-main/ios/App/build/ipa -name "*.ipa" | head -1)
+          xcrun altool --upload-app \
+            -f "$APP_FILE" \
+            -t ios \
+            --apiKey $APP_STORE_CONNECT_KEY_IDENTIFIER \
+            --apiIssuer $APP_STORE_CONNECT_ISSUER_ID
 
     artifacts:
-      - myvibe-main/ios/App/build/ios/ipa/*.ipa
-
-    publishing:
-      app_store_connect:
-        auth: integration
-        submit_to_testflight: true
-        beta_groups:
-          - MyVibe Testers
+      - myvibe-main/ios/App/build/ipa/*.ipa
