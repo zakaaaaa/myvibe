@@ -6,9 +6,8 @@ workflows:
     integrations:
       app_store_connect: CodeMagic API Key
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: co.myibe.app
+      groups:
+        - ios_credentials
       vars:
         BUNDLE_ID: "co.myibe.app"
         TEAM_ID: "669NSSC9CW"
@@ -48,18 +47,63 @@ workflows:
           cd myvibe-main/ios/App
           pod install
 
-      - name: Set up code signing
+      - name: Set up manual code signing
         script: |
-          keychain initialize
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --create
-          keychain add-certificates
+          # Create keychain
+          KEYCHAIN_PATH="$HOME/Library/Keychains/build.keychain-db"
+          KEYCHAIN_PASSWORD="temporary"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain-db
 
-      - name: Set up Xcode project settings
+          # Import distribution certificate
+          echo "$CERTIFICATE_PRIVATE_KEY" | base64 --decode > /tmp/cert.p12
+          security import /tmp/cert.p12 -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Install provisioning profile
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > /tmp/profile.mobileprovision
+
+          # Get UUID from profile
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(security cms -D -i /tmp/profile.mobileprovision))
+          echo "Profile UUID: $PROFILE_UUID"
+          cp /tmp/profile.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/${PROFILE_UUID}.mobileprovision"
+
+          # Verify
+          echo "Installed profiles:"
+          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/"
+          echo "Keychain certificates:"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
+      - name: Set up Xcode project for manual signing
         script: |
           cd myvibe-main/ios/App
-          xcode-project use-profiles
+
+          # Get profile UUID
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(security cms -D -i /tmp/profile.mobileprovision))
+
+          # Get signing identity name
+          SIGNING_IDENTITY=$(security find-identity -v -p codesigning "$HOME/Library/Keychains/build.keychain-db" | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "Signing identity: $SIGNING_IDENTITY"
+          echo "Profile UUID: $PROFILE_UUID"
+
+          # Update project to manual signing
+          ruby -e "
+            content = File.read('App.xcodeproj/project.pbxproj')
+            content.gsub!(/CODE_SIGN_STYLE = .*;/, 'CODE_SIGN_STYLE = Manual;')
+            content.gsub!(/DEVELOPMENT_TEAM = .*;/, 'DEVELOPMENT_TEAM = $TEAM_ID;')
+            content.gsub!(/PROVISIONING_PROFILE_SPECIFIER = .*;/, 'PROVISIONING_PROFILE_SPECIFIER = \"MyVibe AppStore\";')
+            content.gsub!(/\"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]\" = .*;/, '\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"Apple Distribution\";')
+
+            # Add provisioning profile if not present
+            unless content.include?('PROVISIONING_PROFILE_SPECIFIER')
+              content.gsub!(/DEVELOPMENT_TEAM = $TEAM_ID;/) { |m| m + \"\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \\\"MyVibe AppStore\\\";\" }
+            end
+
+            File.write('App.xcodeproj/project.pbxproj', content)
+          "
 
       - name: Set version number
         script: |
@@ -71,16 +115,67 @@ workflows:
       - name: Build iOS archive
         script: |
           cd myvibe-main/ios/App
-          xcode-project build-ipa \
-            --workspace App.xcworkspace \
-            --scheme App
+
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(security cms -D -i /tmp/profile.mobileprovision))
+
+          xcodebuild -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -archivePath build/App.xcarchive \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE="$PROFILE_UUID" \
+            PROVISIONING_PROFILE_SPECIFIER="MyVibe AppStore" \
+            archive
+
+      - name: Export IPA
+        script: |
+          cd myvibe-main/ios/App
+
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(security cms -D -i /tmp/profile.mobileprovision))
+
+          cat > /tmp/ExportOptions.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>${TEAM_ID}</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>${BUNDLE_ID}</key>
+              <string>MyVibe AppStore</string>
+            </dict>
+            <key>signingCertificate</key>
+            <string>Apple Distribution</string>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+
+          xcodebuild -exportArchive \
+            -archivePath build/App.xcarchive \
+            -exportOptionsPlist /tmp/ExportOptions.plist \
+            -exportPath build/ipa
+
+      - name: Upload to TestFlight
+        script: |
+          APP_FILE=$(find myvibe-main/ios/App/build/ipa -name "*.ipa" | head -1)
+          echo "Uploading: $APP_FILE"
+          xcrun altool --upload-app \
+            -f "$APP_FILE" \
+            -t ios \
+            --apiKey "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
 
     artifacts:
-      - myvibe-main/ios/App/build/ios/ipa/*.ipa
-
-    publishing:
-      app_store_connect:
-        auth: integration
-        submit_to_testflight: true
-        beta_groups:
-          - MyVibe Testers
+      - myvibe-main/ios/App/build/ipa/*.ipa
