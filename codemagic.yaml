@@ -337,7 +337,28 @@ workflows:
           PYEOF
 
       # ---------------------------------------------------------------
-      # 9. Build iOS archive
+      # 9. Auto-increment build number using Codemagic BUILD_NUMBER
+      #    This ensures every CI build gets a unique build number
+      #    so App Store Connect never rejects "Redundant Binary Upload"
+      # ---------------------------------------------------------------
+      - name: Set build number from Codemagic
+        script: |
+          # Codemagic provides $BUILD_NUMBER automatically (1, 2, 3, ...)
+          # It increments with every build on this workflow.
+          BUILD_NUM=${BUILD_NUMBER:-1}
+          echo "Setting CFBundleVersion (build number) to: $BUILD_NUM"
+
+          # Update Info.plist
+          PLIST_PATH="ios/App/App/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUM" "$PLIST_PATH"
+
+          # Verify
+          echo "=== Updated Info.plist ==="
+          echo "CFBundleVersion: $(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST_PATH")"
+          echo "CFBundleShortVersionString: $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST_PATH")"
+
+      # ---------------------------------------------------------------
+      # 10. Build iOS archive
       # ---------------------------------------------------------------
       - name: Build iOS archive
         script: |
