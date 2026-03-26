@@ -55,15 +55,16 @@ workflows:
           echo $CERTIFICATE_PRIVATE_KEY | base64 --decode > /tmp/certificate.p12
           keychain add-certificates --certificate /tmp/certificate.p12 --certificate-password $P12_PASSWORD
 
-          # Write API key preserving newlines
+          # Decode API key from base64
           mkdir -p ~/.private_keys
-          printf '%s\n' "$APP_STORE_CONNECT_PRIVATE_KEY" > ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
+          echo "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 --decode > ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
 
-          # Verify key file
-          echo "--- Key file contents check ---"
+          # Verify key file is valid PEM
+          echo "--- Key file verify ---"
           head -1 ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
+          tail -1 ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
           wc -l ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
-          echo "--- End check ---"
+          echo "--- End verify ---"
 
       - name: Set up Xcode project settings
         script: |
@@ -98,13 +99,15 @@ workflows:
         script: |
           cd myvibe-main/ios/App
 
-          cat > /tmp/ExportOptions.plist << 'PLIST'
+          cat > /tmp/ExportOptions.plist << PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
             <key>method</key>
             <string>app-store-connect</string>
+            <key>teamID</key>
+            <string>${TEAM_ID}</string>
             <key>signingStyle</key>
             <string>automatic</string>
             <key>uploadBitcode</key>
@@ -114,9 +117,6 @@ workflows:
           </dict>
           </plist>
           PLIST
-
-          # Insert actual team ID
-          sed -i '' "s|</dict>|  <key>teamID</key>\n    <string>$TEAM_ID</string>\n</dict>|" /tmp/ExportOptions.plist
 
           xcodebuild -exportArchive \
             -archivePath build/App.xcarchive \
