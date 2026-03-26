@@ -1,10 +1,11 @@
 workflows:
-  ios-testflight:
-    name: iOS TestFlight
-    max_build_duration: 60
+  ios-release:
+    name: MyVibe iOS Release
+    max_build_duration: 90
     instance_type: mac_mini_m2
+    working_directory: myvibe-main
     integrations:
-      app_store_connect: CodeMagic API Key
+      app_store_connect: "CodeMagic API Key"
     environment:
       groups:
         - ios_credentials
@@ -12,8 +13,12 @@ workflows:
         BUNDLE_ID: "co.myibe.app"
         TEAM_ID: "669NSSC9CW"
         APP_STORE_APP_ID: "6742460190"
+        PROFILE_NAME: "MyVibe AppStore"
+        PROFILE_UUID: "680622c3-f585-4995-afe8-df02896b76f1"
+        XCODE_WORKSPACE: "ios/App/App.xcworkspace"
+        XCODE_SCHEME: "App"
       node: 18
-      xcode: latest
+      xcode: latest # Xcode 16+ on Codemagic
       cocoapods: default
     triggering:
       events:
@@ -22,134 +27,363 @@ workflows:
         - pattern: main
           include: true
     scripts:
+      # ---------------------------------------------------------------
+      # 1. Install Node dependencies & build Vue.js app
+      # ---------------------------------------------------------------
       - name: Install Node dependencies
         script: |
-          cd myvibe-main
           npm ci
 
-      - name: Create env file
+      - name: Build Vue.js app
         script: |
-          cd myvibe-main
-          echo "VUE_APP_API_URL=https://api.myvibeapp.site" > .env
-
-      - name: Build web assets
-        script: |
-          cd myvibe-main
           npm run build
 
+      # ---------------------------------------------------------------
+      # 2. Capacitor sync — copies web assets into ios/ and updates native project
+      # ---------------------------------------------------------------
       - name: Capacitor sync iOS
         script: |
-          cd myvibe-main
           npx cap sync ios
 
-      - name: Install CocoaPods
+      # ---------------------------------------------------------------
+      # 3. Install CocoaPods
+      # ---------------------------------------------------------------
+      - name: Install CocoaPods dependencies
         script: |
-          cd myvibe-main/ios/App
-          pod install
+          cd ios/App
+          pod install --repo-update
 
-      - name: Set up code signing
+      # ---------------------------------------------------------------
+      # 4. Install Apple Distribution certificate from .p12
+      # ---------------------------------------------------------------
+      - name: Install Apple Distribution certificate
         script: |
+          # Decode the base64 .p12 to a file
+          echo "$CERTIFICATE_PRIVATE_KEY" | base64 --decode > /tmp/dist_cert.p12
+
+          # Create a temporary keychain
           KEYCHAIN_PATH="$HOME/Library/Keychains/build.keychain-db"
-          KEYCHAIN_PASSWORD="temporary"
+          KEYCHAIN_PASSWORD="temporary_password"
+
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain-db
 
-          echo "$CERTIFICATE_PRIVATE_KEY" | base64 --decode > /tmp/cert.p12
-          security import /tmp/cert.p12 -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          # Import certificate into keychain
+          security import /tmp/dist_cert.p12 \
+            -k "$KEYCHAIN_PATH" \
+            -P "$P12_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
 
-          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > /tmp/profile.mobileprovision
-          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(security cms -D -i /tmp/profile.mobileprovision))
-          cp /tmp/profile.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/${PROFILE_UUID}.mobileprovision"
+          # Allow codesign to access the keychain without prompt
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
-          echo "Profile UUID: $PROFILE_UUID"
+          # Add build keychain to search list (prepend so it's found first)
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+
+          # Verify certificate is installed
+          echo "=== Installed signing identities ==="
           security find-identity -v -p codesigning "$KEYCHAIN_PATH"
 
-      - name: Configure signing for App target only
+      # ---------------------------------------------------------------
+      # 5. Install provisioning profile
+      ---------------------------------------------------------------
+      - name: Install provisioning profile
         script: |
-          cd myvibe-main/ios/App
+          PROFILE_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROFILE_DIR"
 
-          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(security cms -D -i /tmp/profile.mobileprovision))
+          # Decode the base64 provisioning profile and save with its UUID as filename
+          echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode \
+            > "$PROFILE_DIR/${PROFILE_UUID}.mobileprovision"
 
+          # Verify the profile is installed and show details
+          echo "=== Provisioning profile installed ==="
+          echo "Path: $PROFILE_DIR/${PROFILE_UUID}.mobileprovision"
+          echo ""
+          echo "=== Profile details ==="
+          security cms -D -i "$PROFILE_DIR/${PROFILE_UUID}.mobileprovision" 2>/dev/null | \
+            grep -A2 -E "(Name|TeamIdentifier|UUID|Entitlements)" | head -30
+          echo ""
+          echo "=== Checking capabilities in profile ==="
+          security cms -D -i "$PROFILE_DIR/${PROFILE_UUID}.mobileprovision" 2>/dev/null | \
+            grep -E "(aps-environment|com.apple.developer.applesignin)" || \
+            echo "WARNING: Push Notifications or Sign In with Apple entitlement NOT found in profile!"
+
+      # ---------------------------------------------------------------
+      # 6. Patch project.pbxproj — manual signing for App target ONLY
+      #    This is the critical step. We set:
+      #      - CODE_SIGN_STYLE = Manual (App target only)
+      #      - PROVISIONING_PROFILE_SPECIFIER = "MyVibe AppStore"
+      #      - CODE_SIGN_IDENTITY = "Apple Distribution"
+      #      - DEVELOPMENT_TEAM = our team ID
+      #    Pods targets are left untouched (automatic, no signing).
+      # ---------------------------------------------------------------
+      - name: Patch project.pbxproj for manual signing (App target only)
+        script: |
           python3 << 'PYEOF'
-          import re, sys
+          import re
+          import sys
 
-          with open('App.xcodeproj/project.pbxproj', 'r') as f:
+          pbxproj_path = "ios/App/App.xcodeproj/project.pbxproj"
+
+          with open(pbxproj_path, "r") as f:
               content = f.read()
 
-          # Find all build configuration sections for the App target
-          # We need to set manual signing only where PRODUCT_BUNDLE_IDENTIFIER = co.myibe.app
-          # Replace CODE_SIGN_STYLE only near PRODUCT_BUNDLE_IDENTIFIER lines
-          lines = content.split('\n')
-          new_lines = []
-          i = 0
-          while i < len(lines):
-              line = lines[i]
-              new_lines.append(line)
+          team_id = "669NSSC9CW"
+          profile_name = "MyVibe AppStore"
+          profile_uuid = "680622c3-f585-4995-afe8-df02896b76f1"
+          bundle_id = "co.myibe.app"
 
-              # When we find bundle ID for our app, inject signing settings after it
-              if 'PRODUCT_BUNDLE_IDENTIFIER' in line and 'co.myibe.app' in line:
-                  # Check if CODE_SIGN_STYLE already exists nearby (within next 5 lines)
-                  has_sign_style = False
-                  for j in range(i+1, min(i+6, len(lines))):
-                      if 'CODE_SIGN_STYLE' in lines[j]:
-                          has_sign_style = True
+          # -----------------------------------------------------------
+          # Strategy: We need to find the buildSettings blocks that belong
+          # to the "App" target (not Pods targets). We identify them by
+          # looking for PRODUCT_BUNDLE_IDENTIFIER containing our bundle ID
+          # or PRODUCT_NAME = App, or INFOPLIST_FILE containing App/Info.plist.
+          #
+          # For each such buildSettings block, inject/replace signing keys.
+          # -----------------------------------------------------------
+
+          def patch_build_settings(content, marker_patterns, settings_to_inject):
+              """
+              Find buildSettings blocks containing any of marker_patterns,
+              and inject/replace settings_to_inject in those blocks.
+              """
+              # Find all buildSettings blocks
+              # Pattern: buildSettings = { ... };  (they can be nested)
+              block_pattern = re.compile(
+                  r'(buildSettings\s*=\s*\{)(.*?)(\n\s*\};)',
+                  re.DOTALL
+              )
+
+              def replace_block(match):
+                  prefix = match.group(1)
+                  body = match.group(2)
+                  suffix = match.group(3)
+
+                  # Check if this block belongs to App target
+                  is_app_target = False
+                  for marker in marker_patterns:
+                      if marker in body:
+                          is_app_target = True
                           break
 
-                  if not has_sign_style:
-                      indent = '\t\t\t\t'
-                      new_lines.append(f'{indent}CODE_SIGN_STYLE = Manual;')
-                      new_lines.append(f'{indent}"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";')
-                      new_lines.append(f'{indent}PROVISIONING_PROFILE_SPECIFIER = "MyVibe AppStore";')
+                  if not is_app_target:
+                      return match.group(0)  # Leave untouched
 
-              # Replace existing CODE_SIGN_STYLE for App target sections
-              # (identified by being near PRODUCT_BUNDLE_IDENTIFIER = co.myibe.app)
-              i += 1
+                  # Inject or replace settings
+                  for key, value in settings_to_inject.items():
+                      # Check if key already exists
+                      key_pattern = re.compile(
+                          r'(\n\s*)' + re.escape(key) + r'\s*=\s*[^;]*;'
+                      )
+                      key_match = key_pattern.search(body)
+                      if key_match:
+                          indent = key_match.group(1)
+                          body = key_pattern.sub(
+                              f'{indent}{key} = {value};',
+                              body
+                          )
+                      else:
+                          # Find indentation from an existing line
+                          indent_match = re.search(r'\n(\s+)\w', body)
+                          indent = indent_match.group(1) if indent_match else '\t\t\t\t'
+                          body += f'\n{indent}{key} = {value};'
 
-          content = '\n'.join(new_lines)
+                  return prefix + body + suffix
 
-          # Also replace any existing CODE_SIGN_STYLE = Automatic that's in App target
-          # We do this by finding blocks that contain co.myibe.app
+              content = block_pattern.sub(replace_block, content)
+              return content
+
+          # Markers that identify App target build settings (not Pods)
+          app_markers = [
+              bundle_id,
+              'INFOPLIST_FILE = App/Info.plist',
+              'PRODUCT_NAME = App',
+              '"INFOPLIST_FILE" = "App/Info.plist"',
+          ]
+
+          # Settings to inject into App target build settings
+          signing_settings = {
+              'CODE_SIGN_STYLE': 'Manual',
+              'CODE_SIGN_IDENTITY': '"Apple Distribution"',
+              'DEVELOPMENT_TEAM': team_id,
+              'PROVISIONING_PROFILE_SPECIFIER': f'"{profile_name}"',
+              '"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]"': f'"{profile_name}"',
+              'PROVISIONING_PROFILE': f'"{profile_uuid}"',
+          }
+
+          content = patch_build_settings(content, app_markers, signing_settings)
+
+          # -----------------------------------------------------------
+          # Also patch TargetAttributes in PBXProject section
+          # Find the App target's TargetAttributes and set:
+          #   ProvisioningStyle = Manual
+          #   DevelopmentTeam = our team ID
+          # -----------------------------------------------------------
+          # Replace any ProvisioningStyle = Automatic for our team
           content = re.sub(
-              r'(PRODUCT_BUNDLE_IDENTIFIER = co\.myibe\.app;.*?)(CODE_SIGN_STYLE = )Automatic;',
-              r'\1\2Manual;',
-              content,
-              flags=re.DOTALL
+              r'(DevelopmentTeam\s*=\s*' + re.escape(team_id) + r';\s*\n\s*)ProvisioningStyle\s*=\s*Automatic;',
+              r'\1ProvisioningStyle = Manual;',
+              content
           )
 
-          with open('App.xcodeproj/project.pbxproj', 'w') as f:
+          with open(pbxproj_path, "w") as f:
               f.write(content)
 
-          print("Done configuring App target signing")
+          print("=== project.pbxproj patched successfully ===")
+
+          # Verify the patch
+          with open(pbxproj_path, "r") as f:
+              verify = f.read()
+
+          checks = [
+              ('CODE_SIGN_STYLE = Manual', 'CODE_SIGN_STYLE = Manual'),
+              ('PROVISIONING_PROFILE_SPECIFIER', f'"{profile_name}"'),
+              ('CODE_SIGN_IDENTITY', '"Apple Distribution"'),
+          ]
+          for label, check in checks:
+              count = verify.count(check)
+              status = "OK" if count > 0 else "MISSING"
+              print(f"  {status}: {label} (found {count}x)")
+
           PYEOF
 
-      - name: Set version number
+      # ---------------------------------------------------------------
+      # 7. Verify entitlements file exists and has required capabilities
+      # ---------------------------------------------------------------
+      - name: Verify entitlements
         script: |
-          cd myvibe-main/ios/App
-          agvtool new-marketing-version 1.2.0
-          LATEST_BUILD=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID" || echo "0")
-          agvtool new-version -all $(($LATEST_BUILD + 1))
+          ENTITLEMENTS_FILE="ios/App/App/App.entitlements"
 
+          if [ ! -f "$ENTITLEMENTS_FILE" ]; then
+            echo "WARNING: Entitlements file not found. Creating it..."
+            cat > "$ENTITLEMENTS_FILE" << 'ENTEOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>aps-environment</key>
+            <string>production</string>
+            <key>com.apple.developer.applesignin</key>
+            <array>
+              <string>Default</string>
+            </array>
+          </dict>
+          </plist>
+          ENTEOF
+            echo "Entitlements file created."
+          else
+            echo "Entitlements file found at $ENTITLEMENTS_FILE"
+            echo "=== Contents ==="
+            cat "$ENTITLEMENTS_FILE"
+
+            # Check for required entitlements
+            if ! grep -q "aps-environment" "$ENTITLEMENTS_FILE"; then
+              echo ""
+              echo "WARNING: aps-environment (Push Notifications) not found in entitlements!"
+              echo "Adding Push Notifications entitlement..."
+              # Insert before closing </dict>
+              sed -i '' 's|</dict>|  <key>aps-environment</key>\n  <string>production</string>\n</dict>|' "$ENTITLEMENTS_FILE"
+            fi
+
+            if ! grep -q "com.apple.developer.applesignin" "$ENTITLEMENTS_FILE"; then
+              echo ""
+              echo "WARNING: com.apple.developer.applesignin not found in entitlements!"
+              echo "Adding Sign In with Apple entitlement..."
+              sed -i '' 's|</dict>|  <key>com.apple.developer.applesignin</key>\n  <array>\n    <string>Default</string>\n  </array>\n</dict>|' "$ENTITLEMENTS_FILE"
+            fi
+          fi
+
+          echo ""
+          echo "=== Final entitlements ==="
+          cat "$ENTITLEMENTS_FILE"
+
+      # ---------------------------------------------------------------
+      # 8. Ensure entitlements file is referenced in project.pbxproj
+      # ---------------------------------------------------------------
+      - name: Ensure entitlements reference in project
+        script: |
+          python3 << 'PYEOF'
+          import re
+
+          pbxproj_path = "ios/App/App.xcodeproj/project.pbxproj"
+
+          with open(pbxproj_path, "r") as f:
+              content = f.read()
+
+          entitlements_value = '"App/App.entitlements"'
+          key = "CODE_SIGN_ENTITLEMENTS"
+
+          # Check if CODE_SIGN_ENTITLEMENTS is already set
+          if "CODE_SIGN_ENTITLEMENTS" in content:
+              print(f"CODE_SIGN_ENTITLEMENTS already present in project.pbxproj")
+          else:
+              print(f"Adding CODE_SIGN_ENTITLEMENTS to App target build settings...")
+              # Add after CODE_SIGN_IDENTITY lines in App target blocks
+              content = re.sub(
+                  r'(CODE_SIGN_IDENTITY\s*=\s*"Apple Distribution";)',
+                  r'\1\n\t\t\t\tCODE_SIGN_ENTITLEMENTS = "App/App.entitlements";',
+                  content
+              )
+
+          with open(pbxproj_path, "w") as f:
+              f.write(content)
+
+          # Verify
+          count = content.count("CODE_SIGN_ENTITLEMENTS")
+          print(f"CODE_SIGN_ENTITLEMENTS found {count}x in project.pbxproj")
+          PYEOF
+
+      # ---------------------------------------------------------------
+      # 9. Build iOS archive
+      # ---------------------------------------------------------------
       - name: Build iOS archive
         script: |
-          cd myvibe-main/ios/App
+          echo "=== Pre-build verification ==="
+          echo ""
+          echo "--- Installed provisioning profiles ---"
+          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/"
+          echo ""
+          echo "--- Signing identities ---"
+          security find-identity -v -p codesigning
+          echo ""
 
-          xcodebuild -workspace App.xcworkspace \
-            -scheme App \
-            -configuration Release \
-            -archivePath build/App.xcarchive \
-            -destination 'generic/platform=iOS' \
+          # Build the archive
+          # ONLY pass DEVELOPMENT_TEAM on command line
+          # All other signing config is in project.pbxproj
+          xcodebuild archive \
+            -workspace "$XCODE_WORKSPACE" \
+            -scheme "$XCODE_SCHEME" \
+            -destination "generic/platform=iOS" \
+            -archivePath "$HOME/build/App.xcarchive" \
             DEVELOPMENT_TEAM="$TEAM_ID" \
-            archive
+            -allowProvisioningUpdates=NO \
+            -verbose \
+            | tee "$HOME/build/xcodebuild.log" \
+            | xcpretty --color
 
+          # Check build result
+          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo ""
+            echo "=== BUILD FAILED ==="
+            echo "Last 100 lines of raw log:"
+            tail -100 "$HOME/build/xcodebuild.log"
+            exit 1
+          fi
+
+          echo ""
+          echo "=== Archive built successfully ==="
+          ls -la "$HOME/build/App.xcarchive"
+
+      # ---------------------------------------------------------------
+      # 10. Export IPA for App Store / TestFlight
+      # ---------------------------------------------------------------
       - name: Export IPA
         script: |
-          cd myvibe-main/ios/App
-
-          cat > /tmp/ExportOptions.plist << PLIST
+          # Create ExportOptions.plist
+          cat > /tmp/ExportOptions.plist << EXPORTEOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -158,37 +392,86 @@ workflows:
             <string>app-store</string>
             <key>teamID</key>
             <string>${TEAM_ID}</string>
+            <key>uploadSymbols</key>
+            <true/>
             <key>signingStyle</key>
             <string>manual</string>
             <key>provisioningProfiles</key>
             <dict>
               <key>${BUNDLE_ID}</key>
-              <string>MyVibe AppStore</string>
+              <string>${PROFILE_NAME}</string>
             </dict>
             <key>signingCertificate</key>
             <string>Apple Distribution</string>
-            <key>uploadBitcode</key>
-            <false/>
-            <key>uploadSymbols</key>
-            <true/>
           </dict>
           </plist>
-          PLIST
+          EXPORTEOF
+
+          echo "=== ExportOptions.plist ==="
+          cat /tmp/ExportOptions.plist
+          echo ""
 
           xcodebuild -exportArchive \
-            -archivePath build/App.xcarchive \
+            -archivePath "$HOME/build/App.xcarchive" \
             -exportOptionsPlist /tmp/ExportOptions.plist \
-            -exportPath build/ipa
+            -exportPath "$HOME/build/export" \
+            | tee "$HOME/build/export.log" \
+            | xcpretty --color
 
+          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo ""
+            echo "=== EXPORT FAILED ==="
+            tail -50 "$HOME/build/export.log"
+            exit 1
+          fi
+
+          echo ""
+          echo "=== IPA exported successfully ==="
+          ls -la "$HOME/build/export/"
+
+      # ---------------------------------------------------------------
+      # 11. Upload to TestFlight via App Store Connect API
+      # ---------------------------------------------------------------
       - name: Upload to TestFlight
         script: |
-          APP_FILE=$(find myvibe-main/ios/App/build/ipa -name "*.ipa" | head -1)
-          echo "Uploading: $APP_FILE"
+          # Decode the .p8 API key
+          APP_STORE_CONNECT_PRIVATE_KEY=$(echo "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 --decode)
+
+          # Find the IPA
+          IPA_PATH=$(find "$HOME/build/export" -name "*.ipa" | head -1)
+          echo "Uploading IPA: $IPA_PATH"
+
           xcrun altool --upload-app \
-            -f "$APP_FILE" \
-            -t ios \
+            --type ios \
+            --file "$IPA_PATH" \
             --apiKey "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" \
+            --verbose
+
+          # Alternative: use newer notarytool/xcrun method if altool deprecated
+          # xcrun notarytool is for macOS only, for iOS use altool or
+          # Transporter. If altool fails, try:
+          #
+          # mkdir -p ~/.appstoreconnect/private_keys
+          # echo "$APP_STORE_CONNECT_PRIVATE_KEY" > \
+          #   ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
+          #
+          # xcrun altool --upload-app \
+          #   --type ios \
+          #   --file "$IPA_PATH" \
+          #   --apiKey "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+          #   --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
 
     artifacts:
-      - myvibe-main/ios/App/build/ipa/*.ipa
+      - "$HOME/build/App.xcarchive/**/*"
+      - "$HOME/build/export/**/*"
+      - "$HOME/build/*.log"
+      - myvibe-main/ios/App/App.xcodeproj/project.pbxproj
+      - myvibe-main/ios/App/App/App.entitlements
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - "Internal Testers"
