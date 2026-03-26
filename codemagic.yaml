@@ -1,0 +1,83 @@
+workflows:
+  ios-testflight:
+    name: iOS TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      groups:
+        - ios_credentials
+      vars:
+        BUNDLE_ID: "co.myibe.app"
+        TEAM_ID: "669NSSC9CW"
+        APP_STORE_APP_ID: "6742460190"
+      node: 18
+      xcode: latest
+      cocoapods: default
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+    scripts:
+      - name: Install Node dependencies
+        script: |
+          cd myvibe-main
+          npm ci
+
+      - name: Create env file
+        script: |
+          cd myvibe-main
+          echo "VUE_APP_API_URL=https://api.myvibeapp.site" > .env
+
+      - name: Build web assets
+        script: |
+          cd myvibe-main
+          npm run build
+
+      - name: Capacitor sync iOS
+        script: |
+          cd myvibe-main
+          npx cap sync ios
+
+      - name: Install CocoaPods
+        script: |
+          cd myvibe-main/ios/App
+          pod install
+
+      - name: Set up code signing
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+
+      - name: Set up Xcode project settings
+        script: |
+          cd myvibe-main/ios/App
+          xcode-project use-profiles
+
+      - name: Set version number
+        script: |
+          cd myvibe-main/ios/App
+          agvtool new-marketing-version 1.2.0
+          LATEST_BUILD=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID" || echo "0")
+          agvtool new-version -all $(($LATEST_BUILD + 1))
+
+      - name: Build iOS archive
+        script: |
+          cd myvibe-main/ios/App
+          xcode-project build-ipa \
+            --workspace App.xcworkspace \
+            --scheme App
+
+    artifacts:
+      - myvibe-main/ios/App/build/ios/ipa/*.ipa
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - MyVibe Testers
