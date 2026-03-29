@@ -15,7 +15,7 @@
       "deepLinks": [
         {
           "scheme": "https",
-          "host": "myvibeapp.co",
+          "host": "myvibeapp.site",
           "paths": [
             "/:username/:slug",
             "/:username"
