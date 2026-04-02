@@ -149,10 +149,10 @@
 						<div class="mb-3"><label class="form-label mb-1">Profile Picture</label><div class="profile-picture-cage" data-bs-toggle="modal" data-bs-target="#chooseMethodPictureModal"><div class="image"><img :src="this.ava_picture" alt="" /></div><p>Put up a nice photo! Everyone can see it.</p></div></div>
 						<div class="mb-3" v-if="showUsername"><label class="form-label">Username</label><input type="text" class="form-control" v-model="username" placeholder="Add your username here" minlength="3" maxlength="15" pattern="^[a-zA-Z0-9_]+$" required /></div>
 						<div class="mb-3"><label class="form-label">Fullname</label><input type="text" class="form-control" v-model="name" placeholder="Add your fullname here" required /></div>
-						<div class="mb-3"><label class="form-label">MBTI <span style="font-size: 10px">(optional)</span></label><VueSelect v-model="mbti_id" :options="optionsMBTI" :isClearable="false" placeholder="Let me know what your MBTI" /></div>
-						<div class="mb-3"><label class="form-label">Zodiac <span style="font-size: 10px">(optional)</span></label><VueSelect v-model="zodiac_id" :options="optionsZodiac" :isClearable="false" placeholder="Choose your zodiac here!"><template #option="{ option }">{{ option.label }} <small>{{ option.description }}</small></template></VueSelect></div>
+						<div class="mb-3"><label class="form-label">MBTI <span style="font-size: 10px">(optional)</span></label><select class="form-control" v-model="mbti_id"><option value="" disabled>Let me know what your MBTI</option><option v-for="opt in optionsMBTI" :key="opt.value" :value="opt.value">{{ opt.label }}</option></select></div>
+						<div class="mb-3"><label class="form-label">Zodiac <span style="font-size: 10px">(optional)</span></label><select class="form-control" v-model="zodiac_id"><option value="" disabled>Choose your zodiac here!</option><option v-for="opt in optionsZodiac" :key="opt.value" :value="opt.value">{{ opt.label }} {{ opt.description }}</option></select></div>
 						<div class="mb-3"><label class="form-label">Enthusiast</label><input type="text" class="form-control" v-model="enthusiast" maxlength="10" placeholder="Let anyone know your hobbies or interest" required /></div>
-						<div class="mb-3"><label class="form-label">Relationship <span style="font-size: 10px">(optional)</span></label><VueSelect v-model="relationship_id" :options="optionsRelationship" :isClearable="false" placeholder="What about your relationship?"><template #option="{ option }">{{ option.label }} <small>- {{ option.description }}</small></template></VueSelect></div>
+						<div class="mb-3"><label class="form-label">Relationship <span style="font-size: 10px">(optional)</span></label><select class="form-control" v-model="relationship_id"><option value="" disabled>What about your relationship?</option><option v-for="opt in optionsRelationship" :key="opt.value" :value="opt.value">{{ opt.label }} - {{ opt.description }}</option></select></div>
 						<div class="d-flex justify-content-center align-items-center flex-column mt-4 gap-2"><button type="submit" class="btn-action glass-submit-btn"><span v-if="!loading" class="me-2">All Set!</span><span v-else><fa icon="spinner" class="fa-spin" /> Loading...</span></button></div>
 						<div class="pt-5"></div>
 					</form>
@@ -178,13 +178,12 @@ import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import { Clipboard } from '@capacitor/clipboard';
 import dashboardService from '@/services/dashboardService';
 import logo from '@/assets/avatar.png';
-import VueSelect from 'vue3-select-component';
 import authService from '@/services/authService';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 
 export default {
 	name: 'SettingView',
-	components: { VueSelect },
+	components: {},
 	data() {
 		return {
 			optionsMBTI: [], optionsZodiac: [], optionsRelationship: [],
@@ -200,7 +199,15 @@ export default {
 			showToast: false, toastMessage: ''
 		};
 	},
-	mounted() { this.getOptionsMBTI(); this.getOptionsZodiac(); this.getOptionsRelationship(); this.getUser(); },
+	mounted() {
+		// Run all API calls in parallel for faster loading
+		Promise.all([
+			this.getOptionsMBTI(),
+			this.getOptionsZodiac(),
+			this.getOptionsRelationship(),
+			this.getUser()
+		]);
+	},
 	methods: {
 		async goSavedVibes() {
 			this.isMain = false; this.isSavedVibes = true; this.isLoadingSaved = true;
