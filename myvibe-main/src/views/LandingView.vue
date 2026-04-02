@@ -156,10 +156,10 @@ export default {
 		const isMobile = Capacitor.isNativePlatform();
 		if (isMobile) {
 			GoogleAuth.initialize({
-				clientId: '12107287082-ep4tlld019vfl0m0dn6nlgtk3ot66pc4.apps.googleusercontent.com',
-				scopes: ['profile', 'email'],
-				grantOfflineAccess: true
-			});
+    clientId: '12107287082-ep4tlld019vfl0m0dn6nlgtk3ot66pc4.apps.googleusercontent.com',
+    scopes: ['profile', 'email'],
+    grantOfflineAccess: true
+});
 		}
 	},
 	methods: {

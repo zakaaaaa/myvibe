@@ -18,7 +18,7 @@ import vue3GoogleLogin from 'vue3-google-login'
 library.add(fas, far);
 
 createApp(App).component('fa', FontAwesomeIcon).use(vue3GoogleLogin, {
-    clientId: '12107287082-ep4tlld019vfl0m0dn6nlgtk3ot66pc4.apps.googleusercontent.com'
+    clientId: '12107287082-c6tcv5n3o3l2ve4pnjk14qkh9350ecpt.apps.googleusercontent.com'
 }).use(firebasePlugin).use(store).use(router).mount('#myVibeApps');
 
 // Disable text selection on native app
