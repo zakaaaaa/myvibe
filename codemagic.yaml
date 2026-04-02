@@ -360,20 +360,11 @@ workflows:
       # ---------------------------------------------------------------
       # 10. Inject Privacy Manifests for Google SDKs
       #     GoogleSignIn 6.x doesn't include PrivacyInfo.xcprivacy
-      #     Apple requires it for App Store submission
+      #     Apple requires it — we inject into pod source + patch Pods.xcodeproj
       # ---------------------------------------------------------------
       - name: Add Privacy Manifests for Google SDKs
         script: |
-          echo "=== Searching for Google SDK frameworks ==="
-          # First, let's see what's in the Pods directory
-          find ios/App/Pods -name "*.framework" -type d 2>/dev/null | grep -i -E "google|gtm" || echo "No frameworks found in Pods"
-          find ios/App/Pods -name "*.xcframework" -type d 2>/dev/null | grep -i -E "google|gtm" || echo "No xcframeworks found in Pods"
-          echo ""
-          echo "=== Checking build products ==="
-          find ios/App -path "*/Frameworks/GoogleSignIn.framework" -type d 2>/dev/null || echo "GoogleSignIn.framework not in build"
-          echo ""
-
-          # Privacy manifest content
+          # Create privacy manifest file
           cat > /tmp/PrivacyInfo.xcprivacy << 'PRIVEOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -416,74 +407,114 @@ workflows:
           </plist>
           PRIVEOF
 
-          INJECTED=0
-
-          # Method 1: Find all .framework directories matching Google/GTM
-          for FRAMEWORK in "GoogleSignIn" "GTMAppAuth" "GTMSessionFetcher"; do
-            DIRS=$(find ios/App -name "${FRAMEWORK}.framework" -type d 2>/dev/null)
-            if [ -n "$DIRS" ]; then
-              while IFS= read -r dir; do
-                cp /tmp/PrivacyInfo.xcprivacy "$dir/PrivacyInfo.xcprivacy"
-                echo "INJECTED: $dir/PrivacyInfo.xcprivacy"
-                INJECTED=$((INJECTED+1))
-              done <<< "$DIRS"
-            fi
-
-            # Also check xcframework
-            XCDIRS=$(find ios/App -name "${FRAMEWORK}.xcframework" -type d 2>/dev/null)
-            if [ -n "$XCDIRS" ]; then
-              while IFS= read -r xcdir; do
-                # Inject into each architecture inside xcframework
-                INNER=$(find "$xcdir" -name "*.framework" -type d 2>/dev/null)
-                while IFS= read -r inner; do
-                  cp /tmp/PrivacyInfo.xcprivacy "$inner/PrivacyInfo.xcprivacy"
-                  echo "INJECTED (xcframework): $inner/PrivacyInfo.xcprivacy"
-                  INJECTED=$((INJECTED+1))
-                done <<< "$INNER"
-              done <<< "$XCDIRS"
+          echo "=== Step 1: Find pod source directories ==="
+          for POD in GoogleSignIn GTMAppAuth GTMSessionFetcher; do
+            POD_DIR=$(find ios/App/Pods -maxdepth 1 -name "$POD" -type d 2>/dev/null)
+            if [ -n "$POD_DIR" ]; then
+              cp /tmp/PrivacyInfo.xcprivacy "$POD_DIR/PrivacyInfo.xcprivacy"
+              echo "Added to source: $POD_DIR/PrivacyInfo.xcprivacy"
+            else
+              echo "WARNING: Pod source dir not found for $POD"
             fi
           done
 
-          # Method 2: Also inject into Pods resource bundles
-          for FRAMEWORK in "GoogleSignIn" "GTMAppAuth" "GTMSessionFetcher"; do
-            RESOURCE_DIR="ios/App/Pods/Target Support Files/${FRAMEWORK}"
-            if [ -d "$RESOURCE_DIR" ]; then
-              cp /tmp/PrivacyInfo.xcprivacy "$RESOURCE_DIR/PrivacyInfo.xcprivacy"
-              echo "INJECTED (support files): $RESOURCE_DIR/PrivacyInfo.xcprivacy"
-              INJECTED=$((INJECTED+1))
-
-              # Also add to resource bundle build phase via script
-              RESOURCE_SCRIPT="$RESOURCE_DIR/${FRAMEWORK}-copy-dsyms.sh"
-            fi
-          done
-
-          # Method 3: Patch Pods project to include privacy manifest as resource
+          echo ""
+          echo "=== Step 2: Patch Pods.xcodeproj to include PrivacyInfo as resource ==="
           python3 << 'PYEOF'
-          import os, re, glob
+          import re
+          import os
+          import uuid
 
-          pods_dir = "ios/App/Pods"
-          pbxproj = os.path.join(pods_dir, "Pods.xcodeproj", "project.pbxproj")
+          pbxproj_path = "ios/App/Pods/Pods.xcodeproj/project.pbxproj"
+          if not os.path.exists(pbxproj_path):
+              print("ERROR: Pods.xcodeproj not found")
+              exit(1)
 
-          if not os.path.exists(pbxproj):
-              print(f"Pods project not found at {pbxproj}")
-              exit(0)
-
-          with open(pbxproj, 'r') as f:
+          with open(pbxproj_path, 'r') as f:
               content = f.read()
 
-          # Check if privacy manifests are already referenced
-          if 'PrivacyInfo.xcprivacy' in content:
-              print("PrivacyInfo.xcprivacy already referenced in Pods project")
-          else:
-              print("PrivacyInfo.xcprivacy NOT in Pods project - frameworks use vendored approach")
+          targets = ["GoogleSignIn", "GTMAppAuth", "GTMSessionFetcher"]
 
-          print("Pods project check complete")
+          for target in targets:
+              # Find the [Resources] section for this target
+              # Look for the Resources build phase that belongs to this target
+              # Pattern: resources section contains files for this target
+              
+              # Find resource build phase for this specific target
+              # We need to find PBXResourcesBuildPhase that belongs to target
+              
+              # Simpler approach: find the resource-copy script for this target
+              # and add PrivacyInfo.xcprivacy to it
+              
+              resource_script_path = f"ios/App/Pods/Target Support Files/{target}/{target}-resources.sh"
+              if os.path.exists(resource_script_path):
+                  with open(resource_script_path, 'r') as f:
+                      script_content = f.read()
+                  
+                  if 'PrivacyInfo.xcprivacy' not in script_content:
+                      # Add the privacy manifest to the install_resource function calls
+                      install_line = f'  install_resource "${{PODS_ROOT}}/{target}/PrivacyInfo.xcprivacy"'
+                      # Find the last install_resource line and add after it
+                      lines = script_content.split('\n')
+                      last_install_idx = -1
+                      for i, line in enumerate(lines):
+                          if 'install_resource' in line and '$PODS_ROOT' in line:
+                              last_install_idx = i
+                      
+                      if last_install_idx >= 0:
+                          lines.insert(last_install_idx + 1, install_line)
+                          script_content = '\n'.join(lines)
+                          with open(resource_script_path, 'w') as f:
+                              f.write(script_content)
+                          print(f"Patched {target}-resources.sh")
+                      else:
+                          # No install_resource lines, try adding before the fi/esac
+                          print(f"No install_resource found in {target}-resources.sh, trying alternative")
+                          # Just append before the last line
+                          script_content = script_content.rstrip() + f'\ninstall_resource "${{PODS_ROOT}}/{target}/PrivacyInfo.xcprivacy"\n'
+                          with open(resource_script_path, 'w') as f:
+                              f.write(script_content)
+                          print(f"Appended to {target}-resources.sh")
+                  else:
+                      print(f"PrivacyInfo already in {target}-resources.sh")
+              else:
+                  print(f"No resources script for {target}")
+                  # Try alternative: add directly to the target's resource files in pbxproj
+                  # Look for the target's resource build phase
+          
+          print("\nDone patching resource scripts")
           PYEOF
 
           echo ""
-          echo "=== Summary: $INJECTED privacy manifests injected ==="
+          echo "=== Step 3: Alternative — inject into built frameworks after xcodebuild ==="
+          echo "Creating post-build injection script..."
+          cat > /tmp/inject_privacy_post_build.sh << 'POSTEOF'
+          #!/bin/bash
+          # This runs after xcodebuild archive to inject into the .xcarchive
+          ARCHIVE_PATH="$1"
+          if [ -z "$ARCHIVE_PATH" ]; then
+            echo "No archive path provided"
+            exit 0
+          fi
+
+          PRIVACY_FILE="/tmp/PrivacyInfo.xcprivacy"
+
+          for FRAMEWORK in GoogleSignIn GTMAppAuth GTMSessionFetcher; do
+            DIRS=$(find "$ARCHIVE_PATH" -name "${FRAMEWORK}.framework" -type d 2>/dev/null)
+            if [ -n "$DIRS" ]; then
+              while IFS= read -r dir; do
+                if [ ! -f "$dir/PrivacyInfo.xcprivacy" ]; then
+                  cp "$PRIVACY_FILE" "$dir/PrivacyInfo.xcprivacy"
+                  echo "POST-BUILD INJECTED: $dir/PrivacyInfo.xcprivacy"
+                fi
+              done <<< "$DIRS"
+            fi
+          done
+          POSTEOF
+          chmod +x /tmp/inject_privacy_post_build.sh
+
           echo ""
-          echo "=== All PrivacyInfo.xcprivacy files ==="
+          echo "=== All PrivacyInfo.xcprivacy in project ==="
           find ios/App -name "PrivacyInfo.xcprivacy" 2>/dev/null
 
       # ---------------------------------------------------------------
@@ -526,6 +557,18 @@ workflows:
           echo ""
           echo "=== Archive built successfully ==="
           ls -la "$HOME/build/App.xcarchive"
+
+          # POST-BUILD: Inject privacy manifests into frameworks inside archive
+          echo ""
+          echo "=== Injecting privacy manifests into archive frameworks ==="
+          /tmp/inject_privacy_post_build.sh "$HOME/build/App.xcarchive"
+
+          echo ""
+          echo "=== Frameworks in archive ==="
+          find "$HOME/build/App.xcarchive" -name "*.framework" -type d 2>/dev/null | grep -i -E "google|gtm"
+          echo ""
+          echo "=== Privacy manifests in archive ==="
+          find "$HOME/build/App.xcarchive" -name "PrivacyInfo.xcprivacy" 2>/dev/null
 
       # ---------------------------------------------------------------
       # 10. Export IPA for App Store / TestFlight
@@ -625,4 +668,3 @@ workflows:
         submit_to_testflight: true
         beta_groups:
           - "Internal Testers"
-          
