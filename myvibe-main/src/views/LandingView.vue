@@ -221,7 +221,7 @@ export default {
 			try {
 				const options = {
 					clientId: 'co.myibe.app',
-					redirectURI: 'https://myvibeapp.site/dashboard',
+					redirectURI: 'https://myvibeapp.co/dashboard',
 					scopes: 'email name'
 				};
 				console.log('[Apple Sign In] Starting with options:', JSON.stringify(options));

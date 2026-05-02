@@ -241,7 +241,7 @@ export default {
 					await Share.share({
 						title: 'My Vibe',
 						text: 'Check out this vibe!',
-						url: 'https://myvibeapp.site/' + this.data.path,
+						url: 'https://myvibeapp.co/' + this.data.path,
 						dialogTitle: 'Share via'
 					});
 				} else {
@@ -254,7 +254,7 @@ export default {
 					await Share.share({
 						title: 'My Vibe',
 						text: 'Check out this my vibe!',
-						url: 'https://myvibeapp.site/' + this.data.path,
+						url: 'https://myvibeapp.co/' + this.data.path,
 						dialogTitle: 'Share via'
 					});
 				}

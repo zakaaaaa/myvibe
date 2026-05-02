@@ -260,7 +260,7 @@ export default {
 			} catch (e) { console.error('Error fetching home:', e); }
 		},
 		goDetail(path) { this.$router.push('/' + path); },
-		async copyMyVibe() { try { await Clipboard.write({ string: 'https://myvibeapp.site/' + this.$route.params.username }); this.statusNotif = 'success'; this.titleNotif = 'Share Your'; this.titleNotifSecond = 'Vibe!'; this.message = 'Copied to clipboard!'; this.showLink = false; this.showDismiss = true; this.showNotifModal(); } catch (e) { this.statusNotif = 'failed'; this.titleNotif = 'Share'; this.titleNotifSecond = 'Failed'; this.message = 'Failed to copy vibe'; this.showLink = false; this.showDismiss = true; this.showNotifModal(); } },
+		async copyMyVibe() { try { await Clipboard.write({ string: 'https://myvibeapp.co/' + this.$route.params.username }); this.statusNotif = 'success'; this.titleNotif = 'Share Your'; this.titleNotifSecond = 'Vibe!'; this.message = 'Copied to clipboard!'; this.showLink = false; this.showDismiss = true; this.showNotifModal(); } catch (e) { this.statusNotif = 'failed'; this.titleNotif = 'Share'; this.titleNotifSecond = 'Failed'; this.message = 'Failed to copy vibe'; this.showLink = false; this.showDismiss = true; this.showNotifModal(); } },
 		async logoutLink() { try { await dashboardService.postLogout(); } catch (e) {} finally { var b = document.querySelector('.modal-backdrop'); if (b) b.remove(); } },
 		deleteAccount() { this.$refs.deleteAccountBtn.click(); this.startCountdown(); },
 		async handleDeleteAccount() { try { await dashboardService.postDeleteAccount(); } catch (e) {} finally { var b = document.querySelector('.modal-backdrop'); if (b) b.remove(); } },
