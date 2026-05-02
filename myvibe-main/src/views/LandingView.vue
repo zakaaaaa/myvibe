@@ -153,15 +153,16 @@ export default {
 		};
 	},
 	mounted() {
-		const isMobile = Capacitor.isNativePlatform();
-		if (isMobile) {
-			GoogleAuth.initialize({
-    clientId: '12107287082-ep4tlld019vfl0m0dn6nlgtk3ot66pc4.apps.googleusercontent.com',
-    scopes: ['profile', 'email'],
-    grantOfflineAccess: true
-});
-		}
-	},
+    const isMobile = Capacitor.isNativePlatform();
+    if (isMobile) {
+        GoogleAuth.initialize({
+            clientId: '12107287082-c6tcv5n3o3l2ve4pnjk14qkh9350ecpt.apps.googleusercontent.com',
+            //         ^^^^^^^^^ Web Client ID, bukan iOS Client ID
+            scopes: ['profile', 'email'],
+            grantOfflineAccess: true
+        });
+    }
+},
 	methods: {
 		// signInGoogleCheck() {
 		// 	this.$refs.notifModalGoogleBtn.click();
