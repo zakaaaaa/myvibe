@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ProfileMetaController;
 
 /*
 |--------------------------------------------------------------------------
@@ -31,3 +32,7 @@ Route::get('/storage/{path}', function ($path) {
         'Access-Control-Allow-Origin' => '*',
     ]);
 })->where('path', '.*');
+
+// OG meta endpoint untuk crawler
+Route::get('/og/{username}', [ProfileMetaController::class, 'show'])
+    ->where('username', '[A-Za-z0-9_]+');
