@@ -89,7 +89,7 @@
 			<!-- Bottom -->
 			<div class="register-bottom">
 				<p class="register-login-link">
-					Already a member? <RouterLink to="/login">Sign in Here!</RouterLink>
+					Already a member? <RouterLink :to="loginLink">Sign in Here!</RouterLink>
 				</p>
 			</div>
 		</div>
@@ -179,6 +179,12 @@ export default {
 			isChecked: false
 		};
 	},
+	computed: {
+    loginLink() {
+        const redirect = this.$route.query.redirect;
+        return redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login';
+    }
+},
 	methods: {
 		async register() {
 			this.loading = true;
@@ -196,7 +202,8 @@ export default {
 				this.message = response.data.message;
 				this.showLink = true;
 				this.showDismiss = false;
-				this.linkTo = '/login';
+				const redirect = this.$route.query.redirect;
+this.linkTo = redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login';
 				this.showNotifModal();
 			} catch (error) {
 				this.statusNotif = 'failed';

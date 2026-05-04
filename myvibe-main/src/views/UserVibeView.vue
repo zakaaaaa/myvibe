@@ -24,7 +24,7 @@
 			<RouterLink to="/dashboard" class="back-floating anim-back">
 				<fa icon="arrow-left" />
 			</RouterLink>
-			<div class="menu-floating anim-back" data-bs-toggle="modal" data-bs-target="#reportModal">
+			<div v-if="!isGuest()" class="menu-floating anim-back" data-bs-toggle="modal" data-bs-target="#reportModal">
 				<fa icon="ellipsis-vertical" />
 			</div>
 			<div class="vibe-profile mt-4 anim-profile">
@@ -111,8 +111,8 @@
 		<div v-else class="loading">
 			<fa icon="spinner" class="fa-spin-pulse" />
 		</div>
-		<ul class="floating_menu">
-			<li @click="isActive('home', '/dashboard')"><fa :icon="['far', 'user']" /></li>
+		<ul v-if="!isGuest()" class="floating_menu">
+	<li @click="isActive('home', '/dashboard')"><fa :icon="['far', 'user']" /></li>
 			<li @click="isActive('friend', '/dashboard')"><fa :icon="['fas', 'magnifying-glass']" /></li>
 			<li @click="isActive('chat', '/dashboard')">
 				<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26" style="margin-top: -7px">
@@ -151,85 +151,126 @@
 
 <script>
 import dashboardService from '@/services/dashboardService';
+import publicService from '@/services/publicService'; // ⭐ NEW
 import logo from '@/assets/avatar.png';
+import { useAuthGate } from '@/composables/useAuthGate';
 
 export default {
-	name: 'UserVibeView',
-	data() {
-		return {
-			isLoading: false,
-			selectedAction: 'block',
-			showFollowPopup: false,
-			profile: [],
-			others: [],
-			vibe_category: []
-		};
-	},
-	mounted() {
-		this.getUser();
-		this.getOther();
-	},
-	methods: {
-		splitString(data) {
-			return data.split(' ');
-		},
-		async getUser() {
+    name: 'UserVibeView',
+    setup() {
+        const { requireAuth, isGuest } = useAuthGate();
+        return { requireAuth, isGuest };
+    },
+    data() {
+        return {
+            isLoading: false,
+            selectedAction: 'block',
+            showFollowPopup: false,
+            profile: [],
+            others: [],
+            vibe_category: [],
+            viewer: { is_guest: true, is_owner: false, is_following: false, is_friend: false }
+        };
+    },
+    mounted() {
+        this.getUser();
+        this.getOther();
+    },
+    methods: {
+        splitString(data) {
+            return data.split(' ');
+        },
+
+        async getUser() {
 			this.isLoading = true;
 			try {
-				const response = await dashboardService.getFriends(this.$route.params.username);
-				if (response.data.profile.profile_picture) {
-					response.data.profile.profile_picture = process.env.VUE_APP_API_URL + '/' + response.data.profile.profile_picture;
+				// Pakai publicService — works untuk guest & logged-in
+				const response = await publicService.getUserProfile(
+					this.$route.params.username
+				);
+
+				const profileData = response.data.profile;
+
+				// Resolve full profile picture URL
+				if (profileData.profile_picture) {
+					profileData.profile_picture =
+						process.env.VUE_APP_API_URL + '/' + profileData.profile_picture;
 				} else {
-					response.data.profile.profile_picture = logo;
+					profileData.profile_picture = logo;
 				}
-				for (let i = 0; i < response.data.vibe_category.length; i++) {
-					response.data.vibe_category[i].title = this.splitString(response.data.vibe_category[i].title);
+
+				// Flatten relasi
+				profileData.mbti = profileData.mbti?.mbti_name ?? '';
+				profileData.zodiac = profileData.zodiac?.zodiac_name ?? '';
+				profileData.relationship = profileData.relationship?.relationship_name ?? '';
+
+				this.profile = profileData;
+				this.viewer = response.data.viewer ?? this.viewer;
+
+				// Split title untuk render "Top <Songs>" style
+				const categories = response.data.vibe_category ?? [];
+				for (let i = 0; i < categories.length; i++) {
+					categories[i].title = this.splitString(categories[i].title);
 				}
-				this.profile = response.data.profile;
-				this.profile.mbti = this.profile.mbti?.mbti_name ?? '';
-				this.profile.zodiac = this.profile.zodiac?.zodiac_name ?? '';
-				this.profile.relationship = this.profile.relationship?.relationship_name ?? '';
-				this.vibe_category = response.data.vibe_category;
+				this.vibe_category = categories;
+
 				this.isLoading = false;
 			} catch (error) {
-				console.error('Error fetching home:', error);
+				console.error('Error fetching user:', error);
 				this.isLoading = false;
-				this.$router.push('/dashboard');
+				if (error.response?.status === 404) {
+					this.$router.push('/landing');
+				}
 			}
 		},
-		goDetail(path) {
-			this.$router.push('/' + path);
-		},
-		isActive(current, route) {
-			this.$router.push({ path: route, query: { current } });
-		},
-		async follow() {
+
+        goDetail(path) {
+            this.$router.push('/' + path);
+        },
+
+        isActive(current, route) {
+            this.$router.push({ path: route, query: { current } });
+        },
+
+        async follow() {
+			if (!this.requireAuth('follow')) return;
 			try {
 				await dashboardService.followFriends(this.profile.id);
 				this.showFollowPopup = true;
 				setTimeout(() => { this.showFollowPopup = false; }, 2200);
-				const response = await dashboardService.getFriends(this.$route.params.username);
-				response.data.profile.profile_picture = process.env.VUE_APP_API_URL + '/' + response.data.profile.profile_picture || logo;
-				this.profile = response.data.profile ?? '';
-				this.profile.mbti = this.profile.mbti?.mbti_name ?? '';
-				this.profile.zodiac = this.profile.zodiac?.zodiac_name ?? '';
-				this.profile.relationship = this.profile.relationship?.relationship_name ?? '';
-				this.isLoading = false;
+
+				// Refetch via public endpoint
+				const response = await publicService.getUserProfile(
+					this.$route.params.username
+				);
+				const profileData = response.data.profile;
+				profileData.profile_picture =
+					process.env.VUE_APP_API_URL + '/' + profileData.profile_picture || logo;
+				profileData.mbti = profileData.mbti?.mbti_name ?? '';
+				profileData.zodiac = profileData.zodiac?.zodiac_name ?? '';
+				profileData.relationship = profileData.relationship?.relationship_name ?? '';
+				this.profile = profileData;
+				this.viewer = response.data.viewer ?? this.viewer;
 			} catch (error) {
 				console.error('Error fetching home:', error);
 			}
 		},
-		goDM(username) {
-			this.$router.push('/message/' + username);
-		},
-		async getOther() {
-			this.isLoading = true;
+
+        goDM(username) {
+            if (!this.requireAuth('message')) return;
+            this.$router.push('/message/' + username);
+        },
+
+        async getOther() {
 			try {
-				const response = await dashboardService.getOtherUserVibe(this.$route.params.username);
-				this.others = response.data.data;
-				this.isLoading = false;
+				// Endpoint public — works untuk guest & logged-in
+				const response = await publicService.getOtherCategories(
+					this.$route.params.username
+				);
+				this.others = response.data.data ?? response.data ?? [];
 			} catch (error) {
 				console.error('Error fetching others:', error);
+				this.others = [];
 			} finally {
 				const current = this.$route.query.current;
 				if (current && current != 'home') {
@@ -237,18 +278,19 @@ export default {
 				}
 			}
 		},
-		async blockAccount() {
-			try {
-				await dashboardService.unfollowFriends(this.profile.id);
-				this.$router.push('/dashboard');
-			} catch (error) {
-				console.error('Error blocking account:', error);
-			} finally {
-				var backdrop = document.querySelector('.modal-backdrop');
-				if (backdrop) { backdrop.remove(); }
-			}
-		}
-	}
+
+        async blockAccount() {
+            try {
+                await dashboardService.unfollowFriends(this.profile.id);
+                this.$router.push('/dashboard');
+            } catch (error) {
+                console.error('Error blocking account:', error);
+            } finally {
+                var backdrop = document.querySelector('.modal-backdrop');
+                if (backdrop) { backdrop.remove(); }
+            }
+        }
+    }
 };
 </script>
 

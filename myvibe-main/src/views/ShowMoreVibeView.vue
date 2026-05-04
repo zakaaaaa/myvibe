@@ -101,9 +101,15 @@
 
 <script>
 import dashboardService from '@/services/dashboardService';
+import apiClient from '@/services/axios';
+import { useAuthGate } from '@/composables/useAuthGate';
 
 export default {
 	name: 'ShowMoreVibeView',
+	setup() {
+		const { isGuest, requireAuth } = useAuthGate();
+		return { isGuest, requireAuth };
+	},
 	data() {
 		return {
 			isLoading: false,
@@ -132,6 +138,20 @@ export default {
 	methods: {
 		splitString(data) {
 			return data.split(' ');
+		},
+
+		/**
+		 * Helper: fetch vibes per kategori — pakai endpoint public kalau guest,
+		 * endpoint authenticated kalau logged-in.
+		 */
+		async fetchCategoryVibes(params) {
+			const username = this.$route.params.username;
+			const categoryId = this.$route.params.id;
+
+			if (this.isGuest()) {
+				return apiClient.get(`/api/public/users/${username}/category/${categoryId}`, { params });
+			}
+			return dashboardService.getFriendsCategory(username, categoryId, params);
 		},
 
 		startLongPress(event, section) {
@@ -204,6 +224,7 @@ export default {
 					}
 					break;
 				case 'share':
+					// Share natively boleh untuk guest — share URL aja, nggak butuh auth
 					if (navigator.share && vibe) {
 						navigator.share({
 							title: vibe.title,
@@ -213,6 +234,8 @@ export default {
 					}
 					break;
 				case 'report':
+					// Report butuh login
+					if (!this.requireAuth('report')) return;
 					break;
 			}
 		},
@@ -227,8 +250,12 @@ export default {
 					per_page: 10
 				};
 				this.back = '/' + this.$route.params.username;
-				const response = await dashboardService.getFriendsCategory(this.$route.params.username, this.$route.params.id, params);
-				this.title = this.splitString(response.data.data[0].category.title);
+
+				const response = await this.fetchCategoryVibes(params);
+
+				if (response.data.data && response.data.data.length > 0) {
+					this.title = this.splitString(response.data.data[0].category.title);
+				}
 				if (response.data.next_page) {
 					this.next = true;
 					this.nextPage = response.data.next_page;
@@ -237,6 +264,7 @@ export default {
 				this.isLoading = false;
 			} catch (error) {
 				console.error('Error fetching list:', error);
+				this.isLoading = false;
 			}
 		},
 		async loopList() {
@@ -249,7 +277,7 @@ export default {
 						per_page: 10,
 						page: this.nextPage
 					};
-					const response = await dashboardService.getFriendsCategory(this.$route.params.username, this.$route.params.id, params);
+					const response = await this.fetchCategoryVibes(params);
 					if (response.data.next_page) {
 						this.next = true;
 						this.nextPage = response.data.next_page;

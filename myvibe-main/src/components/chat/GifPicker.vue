@@ -261,43 +261,58 @@ export default {
 	}
 
 	&__grid {
-		flex: 1;
-		overflow-y: auto;
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: 6px;
-		-webkit-overflow-scrolling: touch;
-		padding: 2px;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding: 2px;
 
-		@media (min-width: 480px) {
-			grid-template-columns: repeat(3, 1fr);
-		}
-	}
+    // Masonry layout — GIF tampil ukuran asli, kolom auto-fill
+    column-count: 2;
+    column-gap: 6px;
 
-	&__item {
-		cursor: pointer;
-		border-radius: 10px;
-		overflow: hidden;
-		background: rgba($white, 0.04);
-		border: 1px solid rgba($white, 0.06);
-		transition: transform 0.15s ease;
+    @media (min-width: 480px) {
+        column-count: 3;
+    }
+}
 
-		&:active { transform: scale(0.96); }
-		&:hover { border-color: rgba($purple, 0.3); }
+&__item {
+    cursor: pointer;
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba($white, 0.04);
+    border: 1px solid rgba($white, 0.06);
+    transition: transform 0.15s ease;
 
-		img { width: 100%; height: auto; display: block; }
-	}
+    // Penting untuk masonry — biar GIF tidak terpotong antar kolom
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 6px;
+    display: block;
 
-	&__loading,
-	&__empty {
-		grid-column: 1 / -1;
-		text-align: center;
-		padding: 24px;
-		color: rgba($white, 0.4);
-		font-size: 18px;
+    &:active { transform: scale(0.96); }
+    &:hover { border-color: rgba($purple, 0.3); }
 
-		p { font-size: 13px; margin: 0; }
-	}
+    img {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+}
+
+// Loading & empty state harus full-width di multi-column layout
+&__loading,
+&__empty {
+    column-span: all;
+    -webkit-column-span: all;
+    text-align: center;
+    padding: 24px;
+    color: rgba($white, 0.4);
+    font-size: 18px;
+
+    p { font-size: 13px; margin: 0; }
+}
 
 	&__attribution {
 		text-align: center;

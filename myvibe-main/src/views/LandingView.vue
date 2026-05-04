@@ -36,7 +36,7 @@
 			<h1 class="title">Show Your <span class="highlight">Vibe</span> <span class="d-block">to The World!</span></h1>
 		</div>
 		<div class="bottom-float-action">
-			<RouterLink to="/register" class="btn-action">Register Here!</RouterLink>
+			<RouterLink :to="registerLink" class="btn-action">Register Here!</RouterLink>
 			<span class="or"> Or continue with</span>
 			<div class="d-flex">
 				<div class="login-socmed mb-4">
@@ -64,7 +64,7 @@
 					</button>
 				</div>
 			</div>
-			<p>Already a member? <RouterLink to="/login">Sign in Here!</RouterLink></p>
+			<p>Already a member? <RouterLink :to="loginLink">Sign in Here!</RouterLink></p>
 		</div>
 		<span data-bs-toggle="modal" data-bs-target="#notifModal" ref="notifModalBtn"></span>
 		<div class="modal fade" id="notifModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="notifModalLabel" aria-hidden="true">
@@ -148,10 +148,21 @@ export default {
 		};
 	},
 	setup() {
+		
 		return {
 			modules: [Autoplay, EffectCoverflow]
 		};
 	},
+	computed: {
+    registerLink() {
+        const redirect = this.$route.query.redirect;
+        return redirect ? `/register?redirect=${encodeURIComponent(redirect)}` : '/register';
+    },
+    loginLink() {
+        const redirect = this.$route.query.redirect;
+        return redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login';
+    }
+},
 	mounted() {
     const isMobile = Capacitor.isNativePlatform();
     if (isMobile) {
@@ -354,8 +365,11 @@ export default {
 			try {
 				const responseApiProfile = await authService.profile();
 				this.requestPushPermission();
+				const redirect = this.$route.query.redirect;
 				if (!responseApiProfile.data.username) {
 					this.$router.push('/fill-vibe');
+				} else if (redirect) {
+					this.$router.push(redirect);
 				} else {
 					this.$router.push('/dashboard');
 				}
@@ -383,8 +397,11 @@ export default {
 					const token = response.data.token;
 					localStorage.setItem('token', token);
 					this.requestPushPermission();
+					const redirect = this.$route.query.redirect;
 					if (!response.data.user.mbti_id) {
 						this.$router.push('/fill-vibe');
+					} else if (redirect) {
+						this.$router.push(redirect);
 					} else {
 						this.$router.push('/dashboard');
 					}

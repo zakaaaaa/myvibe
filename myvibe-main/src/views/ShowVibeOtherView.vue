@@ -57,13 +57,19 @@ import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import domtoimage from 'dom-to-image';
 import dashboardService from '@/services/dashboardService';
+import apiClient from '@/services/axios';
+import { useAuthGate } from '@/composables/useAuthGate';
 import { Capacitor } from '@capacitor/core';
 
 import avatar from '@/assets/avatar.png';
 import axios from 'axios';
 
 export default {
-	name: 'ShowVibeView',
+	name: 'ShowVibeOtherView',
+	setup() {
+		const { isGuest, requireAuth } = useAuthGate();
+		return { isGuest, requireAuth };
+	},
 	data() {
 		return {
 			isLoading: false,
@@ -72,6 +78,7 @@ export default {
 			profile_picture: avatar,
 			name: '',
 			username: '',
+			category: '',
 			corsLink: ''
 		};
 	},
@@ -81,6 +88,8 @@ export default {
 	},
 	methods: {
 		async getCors() {
+			// Skip kalau guest — endpoint /cors butuh auth
+			if (this.isGuest()) return;
 			try {
 				const response = await dashboardService.getCors();
 				this.corsLink = response.data.url;
@@ -142,6 +151,11 @@ export default {
 				});
 				return await this.urlToBase64(response.data);
 			} catch (error) {
+				// Kalau guest atau corsLink kosong, fallback ke URL langsung
+				if (!this.corsLink) {
+					console.error('Error fetching image (no CORS proxy available):', error);
+					return url;
+				}
 				const corsUrl = this.corsLink + url;
 				try {
 					const response = await axios.get(corsUrl, {
@@ -162,9 +176,16 @@ export default {
 			this.isLoading = true;
 			const username = this.$route.params.username;
 			const slug = this.$route.params.slug;
-			const url = `${username}/${slug}`;
 			try {
-				const response = await dashboardService.getOtherVibeShow(url);
+				// Pakai endpoint PUBLIC kalau guest, endpoint authenticated kalau logged-in
+				let response;
+				if (this.isGuest()) {
+					response = await apiClient.get(`/api/public/other-vibes/${username}/${slug}`);
+				} else {
+					const url = `${username}/${slug}`;
+					response = await dashboardService.getOtherVibeShow(url);
+				}
+
 				response.data.path = `${username}/other/${slug}`;
 				this.data = response.data;
 				if (this.data.image_url.startsWith('http://')) {
@@ -180,7 +201,7 @@ export default {
 				this.name = this.data.user.name;
 				this.username = this.data.user.username;
 				this.rating = this.data.rating;
-				this.category = this.data.category.title;
+				this.category = this.data.category?.title ?? '';
 				this.isLoading = false;
 				this.updateMetaTags();
 			} catch (error) {
@@ -189,6 +210,9 @@ export default {
 			}
 		},
 		async downloadStory() {
+			// Share/download butuh login
+			if (!this.requireAuth('share')) return;
+
 			const element = this.$refs.vibesCanvas;
 			try {
 				const isMobile = Capacitor.isNativePlatform();
@@ -259,6 +283,11 @@ export default {
 			var backdrop = document.querySelector('.modal-backdrop');
 			if (backdrop) {
 				backdrop.remove();
+			}
+			// Untuk guest yang masuk lewat shared link (history kosong), arahkan ke profile user
+			if (this.isGuest() && window.history.length <= 2) {
+				this.$router.push('/' + this.$route.params.username);
+				return;
 			}
 			this.$router.go(-1);
 		},

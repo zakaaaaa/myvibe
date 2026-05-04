@@ -33,9 +33,15 @@
 
 <script>
 import dashboardService from '@/services/dashboardService';
+import apiClient from '@/services/axios';
+import { useAuthGate } from '@/composables/useAuthGate';
 
 export default {
 	name: 'ShowMoreOtherVibeView',
+	setup() {
+		const { isGuest } = useAuthGate();
+		return { isGuest };
+	},
 	data() {
 		return {
 			isLoading: false,
@@ -56,6 +62,21 @@ export default {
 		splitString(data) {
 			return data.split(' ');
 		},
+
+		/**
+		 * Helper: fetch other-vibes per kategori — pakai endpoint public kalau guest,
+		 * endpoint authenticated kalau logged-in.
+		 */
+		async fetchCategoryOtherVibes(params) {
+			const username = this.$route.params.username;
+			const categoryId = this.$route.params.id;
+
+			if (this.isGuest()) {
+				return apiClient.get(`/api/public/users/${username}/category-other/${categoryId}`, { params });
+			}
+			return dashboardService.getMoreOtherUserVibe(username, categoryId, params);
+		},
+
 		async getList() {
 			this.isLoading = true;
 			try {
@@ -66,8 +87,12 @@ export default {
 					per_page: 10
 				};
 				this.back = '/' + this.$route.params.username;
-				const response = await dashboardService.getMoreOtherUserVibe(this.$route.params.username, this.$route.params.id, params);
-				this.title = this.splitString(response.data.data[0].category.title);
+
+				const response = await this.fetchCategoryOtherVibes(params);
+
+				if (response.data.data && response.data.data.length > 0) {
+					this.title = this.splitString(response.data.data[0].category.title);
+				}
 				if (response.data.next_page) {
 					this.next = true;
 					this.nextPage = response.data.next_page;
@@ -76,6 +101,7 @@ export default {
 				this.isLoading = false;
 			} catch (error) {
 				console.error('Error fetching list:', error);
+				this.isLoading = false;
 			}
 		},
 		async loopList() {
@@ -88,14 +114,15 @@ export default {
 						per_page: 10,
 						page: this.nextPage
 					};
-					const response = await dashboardService.getMoreOtherUserVibe(this.$route.params.username, this.$route.params.id, params);
+					const response = await this.fetchCategoryOtherVibes(params);
 					if (response.data.next_page) {
 						this.next = true;
 						this.nextPage = response.data.next_page;
 					} else {
 						this.next = false;
 					}
-					this.exploreResult.push(response.data);
+					// FIX: dulu push response.data (object full), sekarang spread response.data.data (array)
+					this.exploreResult.push(...response.data.data);
 				} catch (error) {
 					console.error('Error fetching list:', error);
 				}

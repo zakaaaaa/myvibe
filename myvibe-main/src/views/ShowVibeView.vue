@@ -73,6 +73,8 @@ import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import domtoimage from 'dom-to-image';
 import dashboardService from '@/services/dashboardService';
+import apiClient from '@/services/axios';
+import { useAuthGate } from '@/composables/useAuthGate';
 import { Capacitor } from '@capacitor/core';
 
 import avatar from '@/assets/avatar.png';
@@ -80,6 +82,10 @@ import axios from 'axios';
 
 export default {
 	name: 'ShowVibeView',
+	setup() {
+		const { isGuest, requireAuth } = useAuthGate();
+		return { isGuest, requireAuth };
+	},
 	data() {
 		return {
 			isLoading: false,
@@ -99,6 +105,8 @@ export default {
 	},
 	methods: {
 		async getCors() {
+			// Skip kalau guest — endpoint /cors butuh auth
+			if (this.isGuest()) return;
 			try {
 				const response = await dashboardService.getCors();
 				this.corsLink = response.data.url;
@@ -160,6 +168,11 @@ export default {
 				});
 				return await this.urlToBase64(response.data);
 			} catch (error) {
+				// Kalau guest atau corsLink kosong, skip CORS proxy retry
+				if (!this.corsLink) {
+					console.error('Error fetching image (no CORS proxy available):', error);
+					return url; // fallback: pakai URL langsung
+				}
 				const corsUrl = this.corsLink + encodeURIComponent(url);
 				try {
 					const response = await axios.get(corsUrl, {
@@ -182,7 +195,14 @@ export default {
 			const slug = this.$route.params.slug;
 			const url = `${username}/${slug}`;
 			try {
-				const response = await dashboardService.getVibe(url);
+				// Pakai endpoint PUBLIC kalau guest, endpoint authenticated kalau logged-in
+				let response;
+				if (this.isGuest()) {
+					response = await apiClient.get(`/api/public/vibes/${username}/${slug}`);
+				} else {
+					response = await dashboardService.getVibe(url);
+				}
+
 				response.data.path = url;
 				this.data = response.data;
 				const urlcheck = new URL(this.data.image_url);
@@ -208,10 +228,16 @@ export default {
 			} catch (error) {
 				console.error('Error fetching data:', error);
 				this.showNotifModal();
-				this.$router.go(-1);
+				// Untuk guest, jangan auto-redirect — biarin user lihat error modal
+				if (!this.isGuest()) {
+					this.$router.go(-1);
+				}
 			}
 		},
 		async downloadStory() {
+			// Share/download butuh login
+			if (!this.requireAuth('share')) return;
+
 			if (this.authority != 'image.tmdb.org') {
 				const element = this.$refs.vibesCanvas;
 				const isMobile = Capacitor.isNativePlatform();
@@ -279,6 +305,11 @@ export default {
 			var backdrop = document.querySelector('.modal-backdrop');
 			if (backdrop) {
 				backdrop.remove();
+			}
+			// Untuk guest yang masuk lewat shared link (history kosong), arahkan ke profile user
+			if (this.isGuest() && window.history.length <= 2) {
+				this.$router.push('/' + this.$route.params.username);
+				return;
 			}
 			this.$router.go(-1);
 		},

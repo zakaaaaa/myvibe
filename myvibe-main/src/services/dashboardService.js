@@ -72,6 +72,13 @@ const dashboardService = {
             }
         });
     },
+    postMessageWithAttachment(data) {
+    return apiClient.post('/api/messages', data, {
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    });
+},
     postLogout() {
         return apiClient.post('/api/logout');
     },

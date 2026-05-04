@@ -1,11 +1,17 @@
 <template>
 	<main>
 		<router-view />
+		<AuthGateModal />
 	</main>
 </template>
 <script>
 import { requestPermission, listenForMessages } from '@/services/firebaseMessaging';
+import AuthGateModal from '@/components/AuthGateModal.vue';
+
 export default {
+	components: {
+		AuthGateModal
+	},
 	mounted() {
 		requestPermission();
 	},

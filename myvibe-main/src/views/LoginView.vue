@@ -75,7 +75,7 @@
 				</div>
 
 				<p class="login-register-link">
-					Don't have an account? <RouterLink to="/register">Register Here!</RouterLink>
+					Don't have an account? <RouterLink :to="registerLink">Register Here!</RouterLink>
 				</p>
 			</div>
 		</div>
@@ -128,6 +128,12 @@ export default {
 			showDismiss: false
 		};
 	},
+	computed: {
+    registerLink() {
+        const redirect = this.$route.query.redirect;
+        return redirect ? `/register?redirect=${encodeURIComponent(redirect)}` : '/register';
+    }
+},
 	methods: {
 		async login() {
 			this.loading = true;
@@ -140,8 +146,11 @@ export default {
 					const token = response.data.token;
 					localStorage.setItem('token', token);
 					this.requestPushPermission();
+					const redirect = this.$route.query.redirect;
 					if (!response.data.user.mbti_id) {
 						this.$router.push('/fill-vibe');
+					} else if (redirect) {
+						this.$router.push(redirect);
 					} else {
 						this.$router.push('/dashboard');
 					}

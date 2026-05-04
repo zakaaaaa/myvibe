@@ -260,13 +260,13 @@ export default {
 			this.scrollToLastMessage();
 
 			try {
-				await dashboardService.postMessage({
-					receiver_id: this.profile.id,
-					attachment_type: 'gif',
-					attachment_payload: gif
-				});
-				this.getConversation(this.profile.id);
-			} catch (error) {
+			await dashboardService.postMessageWithAttachment({
+				receiver_id: this.profile.id,
+				attachment_type: 'gif',
+				attachment_payload: gif
+			});
+			this.getConversation(this.profile.id);
+		} catch (error) {
 				console.error('Error sending GIF:', error);
 				// Hapus optimistic bubble kalau gagal
 				this.messages = this.messages.filter(m => m.id !== tempId);
@@ -591,6 +591,7 @@ export default {
 			line-height: 1.3;
 			display: -webkit-box;
 			-webkit-line-clamp: 1;
+			line-clamp: 1;
 			-webkit-box-orient: vertical;
 			overflow: hidden;
 		}
@@ -602,6 +603,7 @@ export default {
 			line-height: 1.3;
 			display: -webkit-box;
 			-webkit-line-clamp: 2;
+			line-clamp: 2;
 			-webkit-box-orient: vertical;
 			overflow: hidden;
 		}
