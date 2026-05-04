@@ -2,13 +2,12 @@
   "appId": "co.myibe.app",
   "appName": "MyVibe",
   "webDir": "dist",
-  "bundledWebRuntime": false,
   "server": {
     "androidScheme": "https",
     "iosScheme": "https"
   },
   "ios": {
-    "allowsBackForwardNavigationGestures": true
+    "allowsBackForwardNavigationGestures": false
   },
   "plugins": {
     "App": {
