@@ -38,11 +38,10 @@
 							<div class="menu-glass__arrow"><fa :icon="['fas', 'angle-right']" /></div>
 						</li>
 						<li @click="openQrShare()" class="menu-glass__item">
-						<div class="menu-glass__icon">
-							<!-- icon SVG existing tetap dipakai -->
-							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><g fill="none"><path d="M24 0v24H0V0z"/><path fill="currentColor" d="M18.5 2a3.5 3.5 0 1 1-2.506 5.943L11.67 10.21c.213.555.33 1.16.33 1.79a4.99 4.99 0 0 1-.33 1.79l4.324 2.267a3.5 3.5 0 1 1-.93 1.771l-4.475-2.346a5 5 0 1 1 0-6.963l4.475-2.347A3.5 3.5 0 0 1 18.5 2m0 15a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M7 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6m11.5-5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3"/></g></svg>
-						</div>
-						<span>Share Your Vibe!</span>
+							<div class="menu-glass__icon">
+								<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><g fill="none"><path d="M24 0v24H0V0z"/><path fill="currentColor" d="M18.5 2a3.5 3.5 0 1 1-2.506 5.943L11.67 10.21c.213.555.33 1.16.33 1.79a4.99 4.99 0 0 1-.33 1.79l4.324 2.267a3.5 3.5 0 1 1-.93 1.771l-4.475-2.346a5 5 0 1 1 0-6.963l4.475-2.347A3.5 3.5 0 0 1 18.5 2m0 15a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M7 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6m11.5-5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3"/></g></svg>
+							</div>
+							<span>Share Your Vibe!</span>
 						</li>
 						<li data-bs-toggle="modal" data-bs-target="#logOutModal" class="menu-glass__item">
 							<div class="menu-glass__icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><g fill="none"><path d="M24 0v24H0V0h24Z"/><path fill="currentColor" d="M5 6a1 1 0 0 0-2 0v12a1 1 0 1 0 2 0V6Zm7.703 10.95a1 1 0 0 0 0-1.415L10.167 13H20a1 1 0 1 0 0-2h-9.833l2.536-2.536a1 1 0 0 0-1.415-1.414l-4.242 4.243a1 1 0 0 0 0 1.414l4.242 4.243a1 1 0 0 0 1.415 0Z"/></g></svg></div>
@@ -163,70 +162,72 @@
 			</transition>
 		</div>
 		<div v-else class="loading"><fa icon="spinner" class="fa-spin-pulse" /></div>
+
 		<!-- === QR SHARE POPUP === -->
-<Transition name="qr-overlay">
-  <div v-if="showQrPopup" class="qr-overlay" @click.self="closeQrShare"></div>
-</Transition>
-<Transition name="qr-sheet">
-  <div v-if="showQrPopup" class="qr-sheet" @click.stop>
-    <div class="qr-sheet__handle"></div>
+		<Transition name="qr-overlay">
+			<div v-if="showQrPopup" class="qr-overlay" @click.self="closeQrShare"></div>
+		</Transition>
+		<Transition name="qr-sheet">
+			<div v-if="showQrPopup" class="qr-sheet" @click.stop>
+				<div class="qr-sheet__inner">
+					<button class="qr-close" @click="closeQrShare" aria-label="Close">
+						<fa :icon="['fas', 'xmark']" />
+					</button>
+					<!-- Card untuk di-screenshot/download (ref="qrCard") -->
+					<div class="qr-card" ref="qrCard">
+						<div class="qr-card__brand">
+							<span class="qr-card__logo">MyVibe</span>
+							<small>Rate Your Favorites</small>
+						</div>
 
-    <div class="qr-sheet__inner">
-      <!-- Card untuk di-screenshot/download (ref="qrCard") -->
-      <div class="qr-card" ref="qrCard">
-        <div class="qr-card__brand">
-          <span class="qr-card__logo">MyVibe</span>
-          <small>Rate Your Favorites</small>
-        </div>
+						<div class="qr-card__qr-wrap">
+							<div class="qr-card__qr">
+								<QrcodeVue
+									v-if="profile && profile.username"
+									:value="profileUrl"
+									:size="180"
+									level="H"
+									foreground="#1a1033"
+									background="#ffffff"
+									render-as="svg"
+								/>
+							</div>
+						</div>
 
-        <div class="qr-card__qr-wrap">
-          <div class="qr-card__qr">
-            <QrcodeVue
-              :value="profileUrl"
-              :size="180"
-              level="H"
-              foreground="#1a1033"
-              background="#ffffff"
-              render-as="svg"
-            />
-          </div>
-        </div>
+						<div class="qr-card__user">
+							<img v-if="profile.profile_picture" :src="profile.profile_picture" alt="" />
+							<h3>{{ profile.name }}</h3>
+							<p>@{{ profile.username }}</p>
+						</div>
 
-        <div class="qr-card__user">
-          <img v-if="profile.profile_picture" :src="profile.profile_picture" alt="" />
-          <h3>{{ profile.name }}</h3>
-          <p>@{{ profile.username }}</p>
-        </div>
+						<div class="qr-card__footer">
+							<span>myvibeapp.co</span>
+						</div>
+					</div>
 
-        <div class="qr-card__footer">
-          <span>myvibeapp.co</span>
-        </div>
-      </div>
+					<!-- Action buttons (TIDAK ikut di-screenshot, di luar qr-card) -->
+					<div class="qr-actions">
+						<button class="qr-action qr-action--primary" @click="shareProfileNative">
+							<fa :icon="['fas', 'share-nodes']" />
+							<span>Share Profile</span>
+						</button>
+						<div class="qr-actions-row">
+							<button class="qr-action" @click="copyProfileLink">
+								<fa :icon="['fas', 'link']" />
+								<span>Copy Link</span>
+							</button>
+							<button class="qr-action" @click="downloadQrImage" :disabled="qrDownloading">
+								<fa :icon="qrDownloading ? 'spinner' : 'download'" :class="{ 'fa-spin': qrDownloading }" />
+								<span>{{ qrDownloading ? 'Saving...' : 'Download QR' }}</span>
+							</button>
+						</div>
+					</div>
 
-      <!-- Action buttons (TIDAK ikut di-screenshot, di luar qr-card) -->
-      <div class="qr-actions">
-        <button class="qr-action qr-action--primary" @click="shareProfileNative">
-          <fa :icon="['fas', 'share-nodes']" />
-          <span>Share Profile</span>
-        </button>
-        <div class="qr-actions-row">
-          <button class="qr-action" @click="copyProfileLink">
-            <fa :icon="['fas', 'link']" />
-            <span>Copy Link</span>
-          </button>
-          <button class="qr-action" @click="downloadQrImage" :disabled="qrDownloading">
-            <fa :icon="qrDownloading ? 'spinner' : 'download'" :class="{ 'fa-spin': qrDownloading }" />
-            <span>{{ qrDownloading ? 'Saving...' : 'Download QR' }}</span>
-          </button>
-        </div>
-      </div>
+					
+				</div>
+			</div>
+		</Transition>
 
-      <button class="qr-close" @click="closeQrShare" aria-label="Close">
-        <fa :icon="['fas', 'xmark']" />
-      </button>
-    </div>
-  </div>
-</Transition>
 		<transition name="toast-pop"><div v-if="showToast" class="sv-toast">{{ toastMessage }}</div></transition>
 
 		<!-- Modals -->
@@ -249,6 +250,7 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import QrcodeVue from 'qrcode.vue';
+
 export default {
 	name: 'SettingView',
 	components: { QrcodeVue },
@@ -258,7 +260,7 @@ export default {
 			old_picture: '', ava_picture: '', profile_picture: '',
 			username: '', name: '', mbti_id: '', zodiac_id: '', relationship_id: '', enthusiast: '',
 			isLoading: false, isMain: true, isManageFollowers: false, isEditProfile: false, isSavedVibes: false,
-			profile: [], listFollowers: [],
+			profile: {}, listFollowers: [],
 			statusNotif: 'failed', titleNotif: '', titleNotifSecond: '', message: '',
 			showLink: false, linkTo: '/', linkText: 'Okay', showDismiss: false,
 			showUsername: true, countdown: 10, timer: null,
@@ -267,6 +269,14 @@ export default {
 			showToast: false, toastMessage: '',
 			showQrPopup: false, qrDownloading: false
 		};
+	},
+	computed: {
+		profileUrl() {
+			const username = this.profile?.username
+				|| this.$route?.params?.username
+				|| '';
+			return username ? 'https://myvibeapp.co/' + username : 'https://myvibeapp.co';
+		}
 	},
 	mounted() {
 		// Run all API calls in parallel for faster loading
@@ -329,96 +339,116 @@ export default {
 			} catch (e) { console.error('Error fetching home:', e); }
 		},
 		goDetail(path) { this.$router.push('/' + path); },
-// NEW: Buka QR Popup (replace fungsi copy lama)
-openQrShare() {
-  this.showQrPopup = true;
-  if (navigator.vibrate) navigator.vibrate(8);
-},
-closeQrShare() { this.showQrPopup = false; },
 
-get profileUrl() {
-  return 'https://myvibeapp.co/' + this.$route.params.username;
-},
+		// ==== QR SHARE POPUP ====
+		openQrShare() {
+			this.showQrPopup = true;
+			if (navigator.vibrate) navigator.vibrate(8);
+		},
+		closeQrShare() { this.showQrPopup = false; },
 
-async copyProfileLink() {
-  try {
-    await Clipboard.write({ string: this.profileUrl });
-    this.showSuccessToast('Link copied to clipboard');
-  } catch (e) {
-    this.showSuccessToast('Failed to copy link');
-  }
-},
+		async copyProfileLink() {
+			try {
+				await Clipboard.write({ string: this.profileUrl });
+				this.showSuccessToast('Link copied to clipboard');
+			} catch (e) {
+				this.showSuccessToast('Failed to copy link');
+			}
+		},
 
-async shareProfileNative() {
-  try {
-    await Share.share({
-      title: 'Check out my MyVibe profile',
-      text: `Follow @${this.profile.username} on MyVibe — Rate Your Favorites`,
-      url: this.profileUrl,
-      dialogTitle: 'Share your vibe'
-    });
-  } catch (e) {
-    // user cancel = OK, jangan alert
-    if (e?.message && !/cancel/i.test(e.message)) {
-      this.showSuccessToast('Failed to share');
-    }
-  }
-},
+		async shareProfileNative() {
+			try {
+				await Share.share({
+					title: 'Check out my MyVibe profile',
+					text: `Follow @${this.profile.username} on MyVibe — Rate Your Favorites`,
+					url: this.profileUrl,
+					dialogTitle: 'Share your vibe'
+				});
+			} catch (e) {
+				if (e?.message && !/cancel/i.test(e.message)) {
+					this.showSuccessToast('Failed to share');
+				}
+			}
+		},
 
-async downloadQrImage() {
-  if (this.qrDownloading) return;
-  this.qrDownloading = true;
-  try {
-    // 1. Render canvas dari elemen .qr-card
-    const html2canvas = (await import('html2canvas')).default;
-    const target = this.$refs.qrCard;
-    if (!target) throw new Error('QR card not found');
+		async downloadQrImage() {
+			if (this.qrDownloading) return;
+			this.qrDownloading = true;
+			try {
+				const html2canvas = (await import('html2canvas')).default;
+				const target = this.$refs.qrCard;
+				if (!target) throw new Error('QR card not found');
 
-    const canvas = await html2canvas(target, {
-      backgroundColor: null,
-      scale: 3,
-      useCORS: true,
-      logging: false
-    });
-    const dataUrl = canvas.toDataURL('image/png');
-    const base64 = dataUrl.split(',')[1];
-    const fileName = `myvibe-${this.profile.username}-${Date.now()}.png`;
+				const canvas = await html2canvas(target, {
+					backgroundColor: '#1a0d3d',
+					scale: 3,
+					useCORS: true,
+					allowTaint: true,
+					logging: false,
+					foreignObjectRendering: false,
+					onclone: (clonedDoc) => {
+						// Disable semua animasi & glow di card cloned (biar tidak ke-capture)
+						const card = clonedDoc.querySelector('.qr-card');
+						if (card) {
+							card.style.animation = 'none';
+							// Remove glow ::after
+							const style = clonedDoc.createElement('style');
+							style.textContent = `
+								.qr-card::after { display: none !important; }
+								.qr-card__qr {
+									animation: none !important;
+									box-shadow: 0 8px 24px rgba(0,0,0,0.3) !important;
+								}
+							`;
+							clonedDoc.head.appendChild(style);
+						}
+						// Force-render SVG QR
+						const svgs = clonedDoc.querySelectorAll('.qr-card__qr svg');
+						svgs.forEach(svg => {
+							svg.setAttribute('width', '180');
+							svg.setAttribute('height', '180');
+							svg.style.width = '180px';
+							svg.style.height = '180px';
+						});
+					}
+				});
+				const dataUrl = canvas.toDataURL('image/png');
+				const base64 = dataUrl.split(',')[1];
+				const fileName = `myvibe-${this.profile.username}-${Date.now()}.png`;
 
-    // 2. Detect platform: native (Capacitor) vs web
-    const isNative = window.Capacitor?.isNativePlatform?.();
+				const isNative = window.Capacitor?.isNativePlatform?.();
 
-    if (isNative) {
-      // Save ke Documents folder
-      const saved = await Filesystem.writeFile({
-        path: fileName,
-        data: base64,
-        directory: Directory.Cache
-      });
-      // Native share dengan file URI
-      await Share.share({
-        title: 'My MyVibe QR',
-        text: `Scan to follow @${this.profile.username}`,
-        url: saved.uri,
-        dialogTitle: 'Save or share QR'
-      });
-      this.showSuccessToast('QR ready to share');
-    } else {
-      // Web: trigger download langsung
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      this.showSuccessToast('QR downloaded');
-    }
-  } catch (e) {
-    console.error('QR download error:', e);
-    this.showSuccessToast('Failed to download QR');
-  } finally {
-    this.qrDownloading = false;
-  }
-},		async logoutLink() { try { await dashboardService.postLogout(); } catch (e) {} finally { var b = document.querySelector('.modal-backdrop'); if (b) b.remove(); } },
+				if (isNative) {
+					const saved = await Filesystem.writeFile({
+						path: fileName,
+						data: base64,
+						directory: Directory.Cache
+					});
+					await Share.share({
+						title: 'My MyVibe QR',
+						text: `Scan to follow @${this.profile.username}`,
+						url: saved.uri,
+						dialogTitle: 'Save or share QR'
+					});
+					this.showSuccessToast('QR ready to share');
+				} else {
+					const a = document.createElement('a');
+					a.href = dataUrl;
+					a.download = fileName;
+					document.body.appendChild(a);
+					a.click();
+					document.body.removeChild(a);
+					this.showSuccessToast('QR downloaded');
+				}
+			} catch (e) {
+				console.error('QR download error:', e);
+				this.showSuccessToast('Failed to download QR');
+			} finally {
+				this.qrDownloading = false;
+			}
+		},
+
+		async logoutLink() { try { await dashboardService.postLogout(); } catch (e) {} finally { var b = document.querySelector('.modal-backdrop'); if (b) b.remove(); } },
 		deleteAccount() { this.$refs.deleteAccountBtn.click(); this.startCountdown(); },
 		async handleDeleteAccount() { try { await dashboardService.postDeleteAccount(); } catch (e) {} finally { var b = document.querySelector('.modal-backdrop'); if (b) b.remove(); } },
 		showNotifModal() { this.$refs.notifModalBtn.click(); },
@@ -496,10 +526,6 @@ async downloadQrImage() {
 	&__arrow { color: rgba($white, 0.3); font-size: 16px; }
 }
 
-// ========================================
-// SAVED VIBES — SELF-CONTAINED CARD STYLES
-// (exact same as FriendsView Spotlight)
-// ========================================
 .sv-section { padding: 0 16px 80px; position: relative; z-index: 2; }
 
 .saved-empty { text-align: center; padding: 60px 20px; color: rgba($white, 0.3);
@@ -527,7 +553,6 @@ async downloadQrImage() {
 
 	&--tall { aspect-ratio: 2/3; }
 
-	// Glass reflection top
 	&::after {
 		content: '';
 		position: absolute;
@@ -541,7 +566,6 @@ async downloadQrImage() {
 
 	&:active { transform: translateY(-1px) scale(0.99); }
 
-	// Badge (top-left user pill)
 	&__badge {
 		position: absolute;
 		top: 20px;
@@ -562,7 +586,6 @@ async downloadQrImage() {
 		h3 { font-weight: 600; font-size: 12px; color: $white; margin: 0; }
 	}
 
-	// Gradient overlay
 	&__gradient {
 		position: absolute;
 		bottom: 0;
@@ -573,7 +596,6 @@ async downloadQrImage() {
 		z-index: 1;
 	}
 
-	// Bottom content
 	&__bottom {
 		position: absolute;
 		bottom: 0;
@@ -614,7 +636,6 @@ async downloadQrImage() {
 	}
 }
 
-// === POPUP ===
 .sv-popup-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); z-index: 200; }
 .sv-popup-overlay-enter-active { transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 .sv-popup-overlay-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -658,64 +679,40 @@ ul.followers_list > li { background: rgba($white, 0.035) !important; backdrop-fi
 
 .loading { display: flex; justify-content: center; align-items: center; height: 100dvh; color: $purple; font-size: 28px; filter: drop-shadow(0 0 12px rgba($purple, 0.4)); }
 .loading-small { display: flex; justify-content: center; align-items: center; height: 30vh; color: $purple; font-size: 28px; filter: drop-shadow(0 0 12px rgba($purple, 0.4)); }
+
 // =========================
 // QR SHARE POPUP — Liquid Glass
 // =========================
 .qr-overlay {
-  position: fixed; inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(24px) saturate(1.4);
-  -webkit-backdrop-filter: blur(24px) saturate(1.4);
-  z-index: 300;
+	position: fixed; inset: 0;
+	background: rgba(0, 0, 0, 0.55);
+	backdrop-filter: blur(24px) saturate(1.4);
+	-webkit-backdrop-filter: blur(24px) saturate(1.4);
+	z-index: 300;
 }
 .qr-overlay-enter-active { transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1); }
 .qr-overlay-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .qr-overlay-enter-from, .qr-overlay-leave-to { opacity: 0; backdrop-filter: blur(0); -webkit-backdrop-filter: blur(0); }
 
 .qr-sheet {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  z-index: 301;
-  padding: 0 14px calc(env(safe-area-inset-bottom) + 20px);
-  pointer-events: none;
-  display: flex;
-  justify-content: center;
+	position: fixed;
+	bottom: 0; left: 0; right: 0;
+	z-index: 301;
+	padding: 0 14px calc(env(safe-area-inset-bottom) + 20px);
+	pointer-events: none;
+	display: flex;
+	justify-content: center;
 
-  &__inner {
+	&__inner {
     pointer-events: auto;
     width: 100%;
     max-width: 420px;
     position: relative;
-    background: rgba(20, 20, 40, 0.62);
-    backdrop-filter: blur(40px) saturate(1.6);
-    -webkit-backdrop-filter: blur(40px) saturate(1.6);
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 32px;
-    box-shadow:
-      0 -16px 60px rgba(0, 0, 0, 0.55),
-      0 0 0 0.5px rgba(255, 255, 255, 0.06),
-      inset 0 1.5px 0 rgba(255, 255, 255, 0.1);
-    padding: 14px 18px 22px;
-    overflow: hidden;
+    padding: 0;
+    overflow: visible;
+}
 
-    // Glass reflection top
-    &::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 5%; right: 5%;
-      height: 30%;
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 100%);
-      border-radius: 32px 32px 0 0;
-      pointer-events: none;
-    }
-  }
-
-  &__handle {
-    width: 38px; height: 4px;
-    border-radius: 2px;
-    background: rgba(255, 255, 255, 0.22);
-    margin: 4px auto 14px;
-  }
+	
 }
 .qr-sheet-enter-active { transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
 .qr-sheet-leave-active { transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -723,196 +720,230 @@ ul.followers_list > li { background: rgba($white, 0.035) !important; backdrop-fi
 .qr-sheet-leave-to { opacity: 0; transform: translateY(40px) scale(0.97); }
 
 .qr-close {
-  position: absolute;
-  top: 14px; right: 14px;
-  width: 32px; height: 32px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.25s ease;
-  z-index: 5;
+    position: absolute;
+    top: -52px; right: 4px;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px) saturate(1.8);
+    -webkit-backdrop-filter: blur(20px) saturate(1.8);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    box-shadow:
+        0 8px 24px rgba(0, 0, 0, 0.4),
+        0 0 0 0.5px rgba(255, 255, 255, 0.08),
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.25),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+    transition: all 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+    overflow: hidden;
+    z-index: 10;
 
-  &:active { transform: scale(0.9); background: rgba(255, 255, 255, 0.14); }
+    // Glass reflection top
+    &::before {
+        content: '';
+        position: absolute;
+        top: 1px; left: 15%; right: 15%;
+        height: 45%;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.05) 60%, transparent 100%);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+
+    // Subtle shine sweep
+    &::after {
+        content: '';
+        position: absolute;
+        top: -50%; left: -50%;
+        width: 200%; height: 200%;
+        background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.15) 50%, transparent 70%);
+        animation: qrCloseShine 4s ease-in-out infinite;
+        pointer-events: none;
+    }
+
+    &:active {
+        transform: scale(0.92);
+        background: rgba(255, 255, 255, 0.18);
+    }
 }
 
-// === QR Card (yang di-screenshot) ===
+@keyframes qrCloseShine {
+    0%, 100% { transform: translate(-30%, -30%) rotate(0deg); opacity: 0; }
+    50% { transform: translate(30%, 30%) rotate(180deg); opacity: 1; }
+}
+
 .qr-card {
-  position: relative;
-  background: linear-gradient(155deg, #2d1b69 0%, #1a0d3d 60%, #0d0626 100%);
-  border-radius: 26px;
-  padding: 22px 20px 18px;
-  margin: 0 auto 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  overflow: hidden;
-  animation: qrCardIn 0.6s cubic-bezier(0.23, 1, 0.32, 1) 0.1s both;
+	position: relative;
+	background: linear-gradient(155deg, #2d1b69 0%, #1a0d3d 60%, #0d0626 100%);
+	border-radius: 26px;
+	padding: 22px 20px 18px;
+	margin: 0 auto 16px;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	overflow: hidden;
+	animation: qrCardIn 0.6s cubic-bezier(0.23, 1, 0.32, 1) 0.1s both;
 
-  // Animated glow
-  &::after {
-    content: '';
-    position: absolute;
-    inset: -50%;
-    background: radial-gradient(circle, rgba(108, 92, 231, 0.18) 0%, transparent 60%);
-    animation: qrGlow 6s ease-in-out infinite;
-    pointer-events: none;
-  }
+	&::after {
+		content: '';
+		position: absolute;
+		inset: -50%;
+		background: radial-gradient(circle, rgba(108, 92, 231, 0.18) 0%, transparent 60%);
+		animation: qrGlow 6s ease-in-out infinite;
+		pointer-events: none;
+	}
 
-  &__brand {
-    text-align: center;
-    margin-bottom: 14px;
-    position: relative;
-    z-index: 2;
-  }
-  &__logo {
-    display: block;
-    color: #fff;
-    font-weight: 800;
-    font-size: 20px;
-    letter-spacing: -0.5px;
-  }
-  &__brand small {
-    color: rgba(255, 255, 255, 0.5);
-    font-size: 10px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-  }
+	&__brand {
+		text-align: center;
+		margin-bottom: 14px;
+		position: relative;
+		z-index: 2;
+	}
+	&__logo {
+		display: block;
+		color: #fff;
+		font-weight: 800;
+		font-size: 20px;
+		letter-spacing: -0.5px;
+	}
+	&__brand small {
+		color: rgba(255, 255, 255, 0.5);
+		font-size: 10px;
+		letter-spacing: 2px;
+		text-transform: uppercase;
+	}
 
-  &__qr-wrap {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 16px;
-    position: relative;
-    z-index: 2;
-  }
-  &__qr {
-    background: #fff;
-    padding: 14px;
-    border-radius: 18px;
-    box-shadow:
-      0 12px 32px rgba(108, 92, 231, 0.4),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.6);
-    animation: qrPulse 3s ease-in-out infinite;
+	&__qr-wrap {
+		display: flex;
+		justify-content: center;
+		margin-bottom: 16px;
+		position: relative;
+		z-index: 2;
+	}
+	&__qr {
+		background: #fff;
+		padding: 14px;
+		border-radius: 18px;
+		box-shadow:
+			0 12px 32px rgba(108, 92, 231, 0.4),
+			inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+		animation: qrPulse 3s ease-in-out infinite;
 
-    svg, canvas { display: block; border-radius: 6px; }
-  }
+		svg, canvas { display: block; border-radius: 6px; }
+	}
 
-  &__user {
-    text-align: center;
-    position: relative;
-    z-index: 2;
+	&__user {
+		text-align: center;
+		position: relative;
+		z-index: 2;
 
-    img {
-      width: 44px; height: 44px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 2px solid rgba(255, 255, 255, 0.2);
-      margin-bottom: 6px;
-    }
-    h3 {
-      color: #fff;
-      font-size: 16px;
-      font-weight: 700;
-      margin: 0;
-    }
-    p {
-      color: rgba(255, 255, 255, 0.55);
-      font-size: 12px;
-      margin: 2px 0 0;
-    }
-  }
+		img {
+			width: 44px; height: 44px;
+			border-radius: 50%;
+			object-fit: cover;
+			border: 2px solid rgba(255, 255, 255, 0.2);
+			margin-bottom: 6px;
+		}
+		h3 {
+			color: #fff;
+			font-size: 16px;
+			font-weight: 700;
+			margin: 0;
+		}
+		p {
+			color: rgba(255, 255, 255, 0.55);
+			font-size: 12px;
+			margin: 2px 0 0;
+		}
+	}
 
-  &__footer {
-    margin-top: 14px;
-    padding-top: 12px;
-    border-top: 1px dashed rgba(255, 255, 255, 0.12);
-    text-align: center;
-    position: relative;
-    z-index: 2;
+	&__footer {
+		margin-top: 14px;
+		padding-top: 12px;
+		border-top: 1px dashed rgba(255, 255, 255, 0.12);
+		text-align: center;
+		position: relative;
+		z-index: 2;
 
-    span {
-      color: rgba(255, 255, 255, 0.4);
-      font-size: 11px;
-      letter-spacing: 1px;
-    }
-  }
+		span {
+			color: rgba(255, 255, 255, 0.4);
+			font-size: 11px;
+			letter-spacing: 1px;
+		}
+	}
 }
 
 @keyframes qrCardIn {
-  from { opacity: 0; transform: translateY(20px) scale(0.95); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+	from { opacity: 0; transform: translateY(20px) scale(0.95); }
+	to { opacity: 1; transform: translateY(0) scale(1); }
 }
 @keyframes qrGlow {
-  0%, 100% { transform: rotate(0deg) scale(1); opacity: 0.6; }
-  50% { transform: rotate(180deg) scale(1.1); opacity: 1; }
+	0%, 100% { transform: rotate(0deg) scale(1); opacity: 0.6; }
+	50% { transform: rotate(180deg) scale(1.1); opacity: 1; }
 }
 @keyframes qrPulse {
-  0%, 100% { box-shadow: 0 12px 32px rgba(108, 92, 231, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.6); }
-  50% { box-shadow: 0 16px 44px rgba(108, 92, 231, 0.65), inset 0 0 0 1px rgba(255, 255, 255, 0.6); }
+	0%, 100% { box-shadow: 0 12px 32px rgba(108, 92, 231, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.6); }
+	50% { box-shadow: 0 16px 44px rgba(108, 92, 231, 0.65), inset 0 0 0 1px rgba(255, 255, 255, 0.6); }
 }
-
-// === Action Buttons ===
 .qr-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  animation: qrActionsIn 0.5s cubic-bezier(0.23, 1, 0.32, 1) 0.25s both;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 4px;
+    animation: qrActionsIn 0.5s cubic-bezier(0.23, 1, 0.32, 1) 0.25s both;
 }
 .qr-actions-row {
-  display: flex;
-  gap: 10px;
+	display: flex;
+	gap: 10px;
 
-  .qr-action { flex: 1; }
+	.qr-action { flex: 1; }
 }
 .qr-action {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
-  position: relative;
-  overflow: hidden;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 14px 16px;
+	border-radius: 16px;
+	background: rgba(255, 255, 255, 0.05);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	color: #fff;
+	font-size: 14px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+	position: relative;
+	overflow: hidden;
 
-  // Glass reflection
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 50%;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 100%);
-    border-radius: 16px 16px 0 0;
-    pointer-events: none;
-  }
+	&::before {
+		content: '';
+		position: absolute;
+		top: 0; left: 0; right: 0;
+		height: 50%;
+		background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 100%);
+		border-radius: 16px 16px 0 0;
+		pointer-events: none;
+	}
 
-  svg { font-size: 14px; opacity: 0.85; }
+	svg { font-size: 14px; opacity: 0.85; }
 
-  &:hover { background: rgba(255, 255, 255, 0.08); transform: translateY(-1px); }
-  &:active { transform: scale(0.97); }
-  &:disabled { opacity: 0.6; cursor: not-allowed; }
+	&:hover { background: rgba(255, 255, 255, 0.08); transform: translateY(-1px); }
+	&:active { transform: scale(0.97); }
+	&:disabled { opacity: 0.6; cursor: not-allowed; }
 
-  &--primary {
-    background: linear-gradient(135deg, rgba(108, 92, 231, 0.85), rgba(74, 58, 223, 0.95));
-    border-color: rgba(255, 255, 255, 0.15);
-    box-shadow: 0 6px 20px rgba(108, 92, 231, 0.3);
+	&--primary {
+		background: linear-gradient(135deg, rgba(108, 92, 231, 0.85), rgba(74, 58, 223, 0.95));
+		border-color: rgba(255, 255, 255, 0.15);
+		box-shadow: 0 6px 20px rgba(108, 92, 231, 0.3);
 
-    &:hover { transform: translateY(-2px); box-shadow: 0 8px 26px rgba(108, 92, 231, 0.4); }
-  }
+		&:hover { transform: translateY(-2px); box-shadow: 0 8px 26px rgba(108, 92, 231, 0.4); }
+	}
 }
 
 @keyframes qrActionsIn {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
+	from { opacity: 0; transform: translateY(16px); }
+	to { opacity: 1; transform: translateY(0); }
 }
 </style>

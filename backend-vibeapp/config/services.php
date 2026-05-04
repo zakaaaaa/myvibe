@@ -13,6 +13,10 @@ return [
     | a conventional file to locate the various service credentials.
     |
     */
+    'giphy' => [
+    'key'  => env('GIPHY_API_KEY'),
+    'base' => env('GIPHY_API_BASE', 'https://api.giphy.com/v1/gifs'),
+],
 
     'mailgun' => [
         'domain' => env('MAILGUN_DOMAIN'),

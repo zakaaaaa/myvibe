@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\FriendshipController;
 use App\Http\Controllers\Api\HomeController;
 use App\Http\Controllers\Api\MbtiController;
 use App\Http\Controllers\Api\MessagesController;
+use App\Http\Controllers\Api\GiphyController;
 use App\Http\Controllers\Api\RelationshipController;
 use App\Http\Controllers\Api\ReportVibeController;
 use App\Http\Controllers\Api\SpotifyController;
@@ -112,6 +113,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::post('/validate_report/{report_id}', [ReportVibeController::class, 'validateReport']);
     Route::apiResource('/report_vibe', ReportVibeController::class);
+    Route::get('/giphy/search', [GiphyController::class, 'search']);
+    Route::get('/giphy/trending', [GiphyController::class, 'trending']);
 
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 });

@@ -16,7 +16,19 @@
 						<fa icon="share" />
 						<span>Forward</span>
 					</div>
-					<div class="bubble-menu__item" @click="copyMessage()">
+					<div
+						v-if="selectedMessage && selectedMessage.attachment_type === 'gif'"
+						class="bubble-menu__item"
+						@click="copyGifLink()"
+					>
+						<fa icon="copy" />
+						<span>Copy GIF link</span>
+					</div>
+					<div
+						v-else
+						class="bubble-menu__item"
+						@click="copyMessage()"
+					>
 						<fa icon="copy" />
 						<span>Copy</span>
 					</div>
@@ -69,11 +81,29 @@
 							</div>
 						</div>
 						<!-- Reply preview -->
-						<div v-if="message.replyTo && !message.sharedVibe" class="reply-preview">
-							<span>{{ message.replyTo }}</span>
-						</div>
-						<p class="text">{{ message.message_text }}</p>
-						<span class="timestamp">{{ formatTime(message.created_at) }}</span>
+							<div v-if="message.replyTo && !message.sharedVibe" class="reply-preview">
+								<span>{{ message.replyTo }}</span>
+							</div>
+
+							<!-- GIF attachment -->
+							<div
+								v-if="message.attachment_type === 'gif' && message.attachment_payload"
+								class="gif-attachment"
+							>
+								<img
+									:src="message.attachment_payload.url"
+									:alt="message.attachment_payload.title || 'GIF'"
+									loading="lazy"
+									:style="{ aspectRatio: `${message.attachment_payload.width || 1} / ${message.attachment_payload.height || 1}` }"
+								/>
+							</div>
+
+							<!-- Text (sembunyikan kalau pesan GIF-only tanpa caption) -->
+							<p v-if="message.message_text && message.message_text !== '🎵'" class="text">
+								{{ message.message_text }}
+							</p>
+
+							<span class="timestamp">{{ formatTime(message.created_at) }}</span>
 					</div>
 				</div>
 			</div>
@@ -111,6 +141,9 @@
 			</transition>
 
 			<div class="comment-box anim-input">
+				<div class="gif-trigger-btn" @click="toggleGifPicker()">
+					<span class="gif-trigger-btn__label">GIF</span>
+				</div>
 				<input type="text" v-model="chatQuery" :placeholder="vibeAttachment ? 'Say something about this vibe...' : 'Say something here!'" @keyup.enter="sendChat(profile.id)" ref="chatInput" />
 				<div class="send-btn" :class="{ 'send-btn--active': chatQuery.trim() || vibeAttachment }" @click="sendChat(profile.id)">
 					<fa :icon="['far', 'paper-plane']" />
@@ -120,6 +153,13 @@
 		<div v-else class="loading">
 			<fa icon="spinner" class="fa-spin-pulse" />
 		</div>
+
+		<!-- GIF Picker -->
+		<gif-picker
+			:visible="showGifPicker"
+			@select="onGifSelected"
+			@close="showGifPicker = false"
+		/>
 	</section>
 </template>
 
@@ -128,9 +168,11 @@ import { parseISO, format, isToday } from 'date-fns';
 import dashboardService from '@/services/dashboardService';
 import logo from '@/assets/avatar.png';
 import { listenForMessages } from '@/services/firebaseMessaging';
+import GifPicker from '@/components/chat/GifPicker.vue';
 
 export default {
 	name: 'ChatUserView',
+	components: { GifPicker },
 	data() {
 		return {
 			isLoading: false,
@@ -153,7 +195,9 @@ export default {
 			// Toast
 			showCopiedToast: false,
 			// Vibe attachment
-			vibeAttachment: null
+			vibeAttachment: null,
+			// GIF picker
+			showGifPicker: false
 		};
 	},
 	mounted() {
@@ -192,6 +236,50 @@ export default {
 			this.vibeAttachment = null;
 			this.chatQuery = '';
 			this.$router.replace({ path: this.$route.path });
+		},
+		// === GIF PICKER ===
+		toggleGifPicker() {
+			this.showGifPicker = !this.showGifPicker;
+		},
+		async onGifSelected(gif) {
+			this.showGifPicker = false;
+
+			const tempId = 'temp-' + Date.now();
+			const optimistic = {
+				id: tempId,
+				sender_id: null,
+				message_text: null,
+				attachment_type: 'gif',
+				attachment_payload: gif,
+				replyTo: null,
+				sharedVibe: null,
+				created_at: new Date().toISOString(),
+				isNew: true
+			};
+			this.messages.push(optimistic);
+			this.scrollToLastMessage();
+
+			try {
+				await dashboardService.postMessage({
+					receiver_id: this.profile.id,
+					attachment_type: 'gif',
+					attachment_payload: gif
+				});
+				this.getConversation(this.profile.id);
+			} catch (error) {
+				console.error('Error sending GIF:', error);
+				// Hapus optimistic bubble kalau gagal
+				this.messages = this.messages.filter(m => m.id !== tempId);
+			}
+		},
+		copyGifLink() {
+			if (this.selectedMessage && this.selectedMessage.attachment_payload?.url) {
+				navigator.clipboard.writeText(this.selectedMessage.attachment_payload.url).then(() => {
+					this.showCopiedToast = true;
+					setTimeout(() => { this.showCopiedToast = false; }, 1500);
+				}).catch(() => {});
+			}
+			this.closeBubbleMenu();
 		},
 		goToVibe(vibe) {
 			if (vibe && vibe.username && vibe.id) {
@@ -242,8 +330,14 @@ export default {
 				const response = await dashboardService.getDetailChatMessage(id);
 				this.messages = response.data.map(m => {
 					const sharedVibe = this.parseSharedVibe(m);
+					// Parse attachment_payload kalau dia masih string (dari DB cast biasanya sudah array, tapi safety net)
+					let payload = m.attachment_payload;
+					if (typeof payload === 'string') {
+						try { payload = JSON.parse(payload); } catch (e) { payload = null; }
+					}
 					return {
 						...m,
+						attachment_payload: payload,
 						replyTo: sharedVibe ? null : (m.reply_to_text || null),
 						sharedVibe: sharedVibe
 					};
@@ -591,7 +685,63 @@ export default {
 .toast-pop-leave-active { transition: all 0.2s ease-in; }
 .toast-pop-enter-from { opacity: 0; transform: translate(-50%, -50%) scale(0.85); }
 .toast-pop-leave-to { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+// === GIF ATTACHMENT (in bubble) ===
+.gif-attachment {
+	margin-bottom: 6px;
+	border-radius: 12px;
+	overflow: hidden;
+	background: rgba($black, 0.2);
+	border: 1px solid rgba($white, 0.06);
+	max-width: 240px;
 
+	img {
+		width: 100%;
+		height: auto;
+		display: block;
+	}
+}
+
+// Bubble GIF-only — bikin background bubble lebih minimalis
+.message:has(.gif-attachment) {
+	&.left, &.right {
+		background: transparent !important;
+		border: none !important;
+		box-shadow: none !important;
+		padding: 4px !important;
+	}
+	.timestamp { padding: 0 6px; }
+}
+
+// === GIF TRIGGER BUTTON ===
+.gif-trigger-btn {
+	width: 36px;
+	height: 36px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+	cursor: pointer;
+	background: rgba($white, 0.04);
+	border: 1px solid rgba($white, 0.06);
+	transition: all 0.3s ease;
+	flex-shrink: 0;
+	margin-right: 6px;
+
+	&__label {
+		font-size: 10px;
+		font-weight: 800;
+		color: rgba($white, 0.5);
+		letter-spacing: 0.5px;
+	}
+
+	&:hover {
+		background: rgba($purple, 0.15);
+		border-color: rgba($purple, 0.25);
+		.gif-trigger-btn__label { color: $white; }
+	}
+
+	&:active { transform: scale(0.9); }
+}
 // === LOADING ===
 .loading { display: flex; justify-content: center; align-items: center; height: 100dvh; color: $purple; font-size: 28px; filter: drop-shadow(0 0 12px rgba($purple, 0.4)); }
 </style>

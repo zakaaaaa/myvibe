@@ -10,12 +10,22 @@ class Messages extends Model
     use HasFactory;
 
     protected $fillable = [
-        'sender_id',
-        'receiver_id',
-        'message_text',
-        'reply_to_id',
-        'reply_to_text',
-    ];
+    'sender_id',
+    'receiver_id',
+    'message_text',
+    'reply_to_id',
+    'reply_to_text',
+    'attachment_type',
+    'attachment_payload',
+];
+
+protected $casts = [
+    'attachment_payload' => 'array',
+    'created_at' => 'datetime',
+    'updated_at' => 'datetime',
+];
+    
+    
 
     public function sender()
     {

@@ -133,6 +133,24 @@ const dashboardService = {
             }
         });
     },
+    // === GIPHY ===
+    searchGiphy(query, limit = 24, offset = 0) {
+        return apiClient.get('/api/giphy/search', {
+            params: { q: query, limit, offset }
+        });
+    },
+    trendingGiphy(limit = 24, offset = 0) {
+        return apiClient.get('/api/giphy/trending', {
+            params: { limit, offset }
+        });
+    },
+
+// === Update sendMessage untuk support attachment ===
+sendMessage(payload) {
+  // payload: { receiver_id, message_text?, reply_to_id?, reply_to_text?,
+  //            attachment_type?, attachment_payload? }
+  return apiClient.post('/messages', payload);
+},
     // Saved Vibes
     toggleSaveVibe(data) {
         return apiClient.post('/api/saved-vibes', data);
