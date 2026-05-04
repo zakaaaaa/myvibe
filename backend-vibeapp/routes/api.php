@@ -33,6 +33,11 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+/*
+|--------------------------------------------------------------------------
+| AUTH ROUTES (Public — Login/Register/Verify)
+|--------------------------------------------------------------------------
+*/
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verify'])->name('verification.verify');
@@ -46,7 +51,42 @@ Route::prefix('auth')->group(function () {
     Route::get('login/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
     Route::post('login/google', [GoogleAuthController::class, 'registerGoogle']);
 });
+
 Route::get('/proxy', [\App\Http\Controllers\Api\ProxyController::class, 'proxy']);
+
+/*
+|--------------------------------------------------------------------------
+| PUBLIC READ-ONLY ROUTES (No Auth Required)
+|--------------------------------------------------------------------------
+| Akses tanpa login untuk profile, vibe detail, dan listing per kategori.
+| Pakai throttle agresif untuk proteksi dari scraping.
+| Controller method harus filter field sensitif (email, fcm_token, dll).
+*/
+Route::middleware('throttle:60,1')->prefix('public')->group(function () {
+    // Profile user + meta viewer flags
+    Route::get('/users/{username}', [UserController::class, 'showPublic']);
+
+    // Detail vibe (built-in category)
+    Route::get('/vibes/{username}/{vibe_id}', [VibeController::class, 'show']);
+
+    // Detail vibe other (custom category)
+    Route::get('/other-vibes/{username}/{vibe_id}', [VibeOtherController::class, 'show']);
+
+    // Listing vibes per kategori (more page)
+    Route::get('/users/{username}/category/{category}', [FriendshipController::class, 'detail']);
+
+    // Listing other vibes per kategori (more page)
+    Route::get('/users/{username}/category-other/{category_other_id}', [CategoryOtherController::class, 'category_other_user_detail']);
+
+    // List custom categories milik user
+    Route::get('/users/{username}/categories-other', [CategoryOtherController::class, 'category_other_user']);
+});
+
+/*
+|--------------------------------------------------------------------------
+| AUTHENTICATED ROUTES (auth:sanctum)
+|--------------------------------------------------------------------------
+*/
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/profile', function (Request $request) {
         return $request->user();
@@ -58,18 +98,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::apiResource('/mbti', MbtiController::class);
     Route::apiResource('/relationship', RelationshipController::class);
 
-    Route::get('/cors', function(){
-        return DB::table('settings')->where('id',1)->first('value as url');
+    Route::get('/cors', function () {
+        return DB::table('settings')->where('id', 1)->first('value as url');
     });
-
-   
 
     Route::apiResource('/friendship', FriendshipController::class);
     Route::get('/friendship/{username}', [FriendshipController::class, 'show'])->name('friend.profile');
     Route::get('/friendship/{username}/{category}', [FriendshipController::class, 'detail']);
 
     Route::apiResource('/home', HomeController::class);
-
     Route::get('/home_detail', [HomeController::class, 'detail']);
 
     Route::apiResource('/vibe', VibeController::class);
@@ -86,6 +123,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('/user', [UserController::class, 'updateProfile']);
     Route::POST('/hapus_akun', [UserController::class, 'hapusAkun']);
 
+    // Messages
     // Route::apiResource('/messages', MessagesController::class);
     Route::post('/messages', [MessagesController::class, 'sendMessage']);
     Route::get('/messages/conversation/{userId}', [MessagesController::class, 'getConversation']);
@@ -98,23 +136,30 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get("/saved-vibes", [\App\Http\Controllers\Api\SavedVibeController::class, "index"]);
     Route::get("/saved-vibes/check/{vibeId}", [\App\Http\Controllers\Api\SavedVibeController::class, "check"]);
 
+    // Follow / Unfollow
     Route::post('/follow/{user}', [FollowController::class, 'follow']);
     Route::post('/unfollow/{user}', [FollowController::class, 'unfollow']);
     Route::get('/followers/{user}', [FollowController::class, 'followers']);
     Route::get('/following/{user}', [FollowController::class, 'following']);
 
+    // Custom Categories (Other)
     Route::apiResource('/category_other', CategoryOtherController::class);
     Route::get('/category_other_user/{username}', [CategoryOtherController::class, 'category_other_user']);
     Route::get('/category_other_user_detail/{username}/{category_other_id}', [CategoryOtherController::class, 'category_other_user_detail']);
 
+    // Vibe Other
     Route::apiResource('/vibe_other', VibeOtherController::class);
     Route::get('/vibe_other_explore', [VibeOtherController::class, 'explore']);
     Route::get('/vibe_other/{username}/{vibe_id}', [VibeOtherController::class, 'show']);
 
+    // Reports
     Route::post('/validate_report/{report_id}', [ReportVibeController::class, 'validateReport']);
     Route::apiResource('/report_vibe', ReportVibeController::class);
+
+    // Giphy
     Route::get('/giphy/search', [GiphyController::class, 'search']);
     Route::get('/giphy/trending', [GiphyController::class, 'trending']);
 
+    // Logout
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 });

@@ -10,8 +10,10 @@ use App\Models\Vibe;
 use App\Models\VibeOther;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+
 use Image;
 
 class UserController extends Controller
@@ -51,6 +53,80 @@ class UserController extends Controller
     public function show($id)
     {
         //
+    }
+
+    /**
+     * PUBLIC profile view (no auth required).
+     * Dipakai untuk route /api/public/users/{username}.
+     * Field sensitif (email, fcm_token, dll) di-hide. Mendukung guest & logged-in viewer.
+     *
+     * @param  string  $username
+     * @return \Illuminate\Http\Response
+     */
+    public function showPublic($username)
+    {
+        $user = User::with(['mbti', 'zodiac', 'relationship'])
+            ->where('username', $username)
+            ->whereNull('deleted_at')
+            ->first();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found.',
+            ], 404);
+        }
+
+        // Resolve viewer — null kalau guest, User instance kalau Bearer token valid
+        $viewer = auth('sanctum')->user();
+        $isGuest = $viewer === null;
+
+        // Hanya field aman untuk publik
+        $userData = [
+            'id'               => $user->id,
+            'name'             => $user->name,
+            'username'         => $user->username,
+            'profile_picture'  => $user->profile_picture,
+            'enthusiast'       => $user->enthusiast,
+            'mbti'             => $user->mbti,
+            'zodiac'           => $user->zodiac,
+            'relationship'     => $user->relationship,
+            'follower'         => $user->followers()->count(),
+            'following'        => $user->following()->count(),
+        ];
+
+        return response()->json([
+            'success' => true,
+            'user'    => $userData,
+            'viewer'  => [
+                'is_guest'     => $isGuest,
+                'is_owner'     => $viewer ? $viewer->id === $user->id : false,
+                'is_following' => $viewer
+                    ? Follow::where('follower_id', $viewer->id)
+                        ->where('following_id', $user->id)
+                        ->exists()
+                    : false,
+                'is_friend'    => $viewer
+                    ? $this->checkMutualFollow($viewer->id, $user->id)
+                    : false,
+            ],
+        ]);
+    }
+
+    /**
+     * Cek apakah dua user saling follow (mutual / friends).
+     */
+    private function checkMutualFollow($viewerId, $targetId): bool
+    {
+        $aFollowsB = Follow::where('follower_id', $viewerId)
+            ->where('following_id', $targetId)
+            ->exists();
+
+        $bFollowsA = Follow::where('follower_id', $targetId)
+            ->where('following_id', $viewerId)
+            ->exists();
+
+        return $aFollowsB && $bFollowsA;
     }
 
     /**
@@ -184,12 +260,12 @@ class UserController extends Controller
         //delete vibe
         //delete vibe other
         //message
-        
-        Follow::where('follower_id',$user->id)->orWhere('following_id', $user->id)->delete();
-        Vibe::where('user_id',$user->id)->delete();
-        VibeOther::where('user_id',$user->id)->delete();
-        Messages::where('sender_id',$user->id)->orWhere('receiver_id', $user->id)->delete();
-        
+
+        Follow::where('follower_id', $user->id)->orWhere('following_id', $user->id)->delete();
+        Vibe::where('user_id', $user->id)->delete();
+        VibeOther::where('user_id', $user->id)->delete();
+        Messages::where('sender_id', $user->id)->orWhere('receiver_id', $user->id)->delete();
+
         $request->user()->currentAccessToken()->delete();
 
         // Return updated user data
