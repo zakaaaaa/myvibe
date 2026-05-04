@@ -77,7 +77,7 @@ class VibeController extends Controller
         //         'path' => $user->username . '/' . $uuid
         //     ]
         // ], ['user_id', 'category_id','image_url'], ['comment','rating','title','title','path']);
-        
+
         $vibe = Vibe::updateOrCreate(
             [
                 'user_id' => $userId,
@@ -117,14 +117,32 @@ class VibeController extends Controller
     /**
      * Display the specified resource.
      *
-     * @param  int  $id
+     * Dipakai untuk:
+     *   - /api/vibe/{username}/{vibe_id}        (authenticated)
+     *   - /api/public/vibes/{username}/{vibe_id} (public — guest boleh akses)
+     *
+     * Untuk guest, field sensitif user (email, fcm_token, dll) di-filter.
+     *
+     * @param  string  $username
+     * @param  string  $vibe_id
      * @return \Illuminate\Http\Response
      */
     public function show($username = null, $vibe_id = null)
     {
-
         $user = User::where('username', $username)->first();
-        $vibe = Vibe::with(['category', 'user'])->where('id', $vibe_id)->where('user_id', $user->id ?? null)->orderBy('category_id', 'asc')->first();
+
+        if (!$user) {
+            return response()->json([
+                'message' => 'User not found.',
+            ], 404);
+        }
+
+        $vibe = Vibe::with(['category', 'user'])
+            ->where('id', $vibe_id)
+            ->where('user_id', $user->id)
+            ->where('blocked', 0)
+            ->orderBy('category_id', 'asc')
+            ->first();
 
         if (!$vibe) {
             return response()->json([
@@ -132,7 +150,31 @@ class VibeController extends Controller
             ], 404);
         }
 
-        return response()->json($vibe);
+        // Resolve viewer — null kalau guest
+        $viewer = auth('sanctum')->user();
+        $isGuest = $viewer === null;
+
+        // Sanitize user data — buang field sensitif untuk public access
+        if ($vibe->user) {
+            $safeUser = [
+                'id'              => $vibe->user->id,
+                'name'            => $vibe->user->name,
+                'username'        => $vibe->user->username,
+                'profile_picture' => $vibe->user->profile_picture,
+                'enthusiast'      => $vibe->user->enthusiast,
+            ];
+            // Replace relasi user dengan versi safe
+            $vibe->setRelation('user', (object) $safeUser);
+        }
+
+        // Tambahin meta viewer biar frontend tau context-nya
+        $response = $vibe->toArray();
+        $response['viewer'] = [
+            'is_guest'  => $isGuest,
+            'is_owner'  => $viewer ? $viewer->id === $user->id : false,
+        ];
+
+        return response()->json($response);
     }
 
     /**
@@ -188,12 +230,12 @@ class VibeController extends Controller
         $seed = session('random_seed', rand()); // Generate or retrieve a seed
 
         $data = Vibe::with(['category', 'user'])->where('blocked',0)->inRandomOrder($seed);//->whereNotIn('id', $request->session()->get('vibe',[]));
-        
+
         // if($paginate) {
         //     $request->session()->push('vibe', $data->pluck('id'));
-        // } 
+        // }
         // else {
-        
+
         //     $request->session()->forget('vibe');
         // }
 

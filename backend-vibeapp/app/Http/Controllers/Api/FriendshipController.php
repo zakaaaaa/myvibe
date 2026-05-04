@@ -6,6 +6,7 @@ use App\Helpers\FirebaseNotificationHelper;
 use App\Helpers\PaginationHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Models\Follow;
 use App\Models\Friendship;
 use App\Models\User;
 use App\Models\Vibe;
@@ -45,9 +46,9 @@ class FriendshipController extends Controller
         $friendships = Friendship::where('user_id_1', $userId)
             ->orWhere('user_id_2', $userId)
             ->with(['user1' => function ($query) {
-                $query->where('deleted_at','=', null);
+                $query->whereNull('deleted_at');
             }, 'user2' => function ($query) {
-                $query->where('deleted_at','=', null);
+                $query->whereNull('deleted_at');
             }]);
 
         $searchTerm = $request->input('search', null);
@@ -157,36 +158,67 @@ class FriendshipController extends Controller
     /**
      * Display the specified resource.
      *
-     * @param  int  $id
+     * Dipakai untuk:
+     *   - /api/friendship/{username}              (authenticated)
+     *   - /api/public/users/{username}/category/* (public — guest boleh akses via detail())
+     *
+     * Method ini handle profile + vibes per category. Aman untuk public:
+     * - Field sensitif (email, fcm_token, password, dll) di-filter
+     * - Flag isFollowing/isFollower di-resolve dari token kalau ada, false kalau guest
+     *
+     * @param  string  $username
      * @return \Illuminate\Http\Response
      */
     public function show($username)
     {
         try {
             // Fetch the friend by username
-            $friend = User::with(['mbti', 'zodiac', 'relationship'])->where('username', $username)->where('deleted_at','=',null)->firstOrFail();
+            $friend = User::with(['mbti', 'zodiac', 'relationship'])
+                ->where('username', $username)
+                ->whereNull('deleted_at')
+                ->firstOrFail();
 
-            // Check if the authenticated user is friends with the requested user
-            // $isFriend = Auth::user()->scopeHasFriendship()
-            //     ->where('user_id_1', $friend->id)
-            //     ->orWhere('user_id_2', $friend->id)
-            //     ->wherePivot('status', 'accepted')
-            //     ->exists();
+            // Resolve viewer — null kalau guest
+            $viewer = auth('sanctum')->user();
+            $isGuest = $viewer === null;
 
-            $friend->isFollowing = auth()->user()->isFollowing($friend);
-            $friend->isFollower = auth()->user()->isFollower($friend);
-            $friend->follower = $friend->followers()->count();
-            $friend->following = $friend->following()->count();
+            // Build profile data — hanya field aman untuk publik
+            $profile = [
+                'id'              => $friend->id,
+                'name'            => $friend->name,
+                'username'        => $friend->username,
+                'profile_picture' => $friend->profile_picture,
+                'enthusiast'      => $friend->enthusiast,
+                'mbti'            => $friend->mbti,
+                'zodiac'          => $friend->zodiac,
+                'relationship'    => $friend->relationship,
+                'follower'        => $friend->followers()->count(),
+                'following'       => $friend->following()->count(),
+                'isFollowing'     => $viewer ? $viewer->isFollowing($friend) : false,
+                'isFollower'      => $viewer ? $viewer->isFollower($friend) : false,
+            ];
 
-            $data = array();
-            $data['profile'] = $friend;
+            $data = [];
+            $data['profile'] = $profile;
 
             $dataCategory = Category::get();
             foreach ($dataCategory as $key => $value) {
-                $dataCategory[$key]['vibes'] =  Vibe::where('category_id', $value->id)->where('blocked', 0)->where('user_id', $friend->id)->orderBy('created_at', 'DESC')->limit(3)->get();
+                $vibes = Vibe::with('category')
+                    ->where('category_id', $value->id)
+                    ->where('blocked', 0)
+                    ->where('user_id', $friend->id)
+                    ->orderBy('created_at', 'DESC')
+                    ->limit(3)
+                    ->get();
+
+                $dataCategory[$key]['vibes'] = $vibes;
             }
 
             $data['vibe_category'] = $dataCategory;
+            $data['viewer'] = [
+                'is_guest' => $isGuest,
+                'is_owner' => $viewer ? $viewer->id === $friend->id : false,
+            ];
 
             return response()->json($data);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -202,6 +234,15 @@ class FriendshipController extends Controller
         }
     }
 
+    /**
+     * Detail vibes per category untuk user tertentu.
+     *
+     * Dipakai untuk:
+     *   - /api/friendship/{username}/{category}                   (authenticated)
+     *   - /api/public/users/{username}/category/{category}        (public — guest boleh akses)
+     *
+     * Untuk guest, field sensitif user dalam relasi vibe.user di-filter.
+     */
     public function detail(Request $request, $userName, $categoryId)
     {
         try {
@@ -211,9 +252,14 @@ class FriendshipController extends Controller
             $sortColumn = $request->input('sort_column', 'id'); // Kolom untuk pengurutan
             $sortOrder = $request->input('sort_order', 'DESC'); // ASC atau DESC
 
-            $userId = User::where('username', $userName)->firstOrFail('id');
+            $userId = User::where('username', $userName)
+                ->whereNull('deleted_at')
+                ->firstOrFail('id');
 
-            $vibe = Vibe::with(['category','user'])->where('category_id', $categoryId)->where('blocked', 0)->where('user_id', $userId->id);
+            $vibe = Vibe::with(['category', 'user'])
+                ->where('category_id', $categoryId)
+                ->where('blocked', 0)
+                ->where('user_id', $userId->id);
 
             $result = PaginationHelper::searchAndPaginate(
                 $vibe,
@@ -224,6 +270,22 @@ class FriendshipController extends Controller
                 $sortColumn,
                 $sortOrder
             );
+
+            // Sanitize user data di setiap vibe — buang field sensitif untuk public access
+            if (isset($result['data'])) {
+                foreach ($result['data'] as $vibeItem) {
+                    if ($vibeItem->user) {
+                        $safeUser = [
+                            'id'              => $vibeItem->user->id,
+                            'name'            => $vibeItem->user->name,
+                            'username'        => $vibeItem->user->username,
+                            'profile_picture' => $vibeItem->user->profile_picture,
+                            'enthusiast'      => $vibeItem->user->enthusiast,
+                        ];
+                        $vibeItem->setRelation('user', (object) $safeUser);
+                    }
+                }
+            }
 
             return response()->json($result);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {

@@ -14,6 +14,25 @@ use Illuminate\Support\Facades\DB;
 class CategoryOtherController extends Controller
 {
     /**
+     * Helper: sanitize user relation pada vibe — buang field sensitif untuk public access.
+     * Hanya keep field aman: id, name, username, profile_picture, enthusiast.
+     */
+    private function sanitizeUserRelation($vibe)
+    {
+        if ($vibe && $vibe->user) {
+            $safeUser = [
+                'id'              => $vibe->user->id,
+                'name'            => $vibe->user->name,
+                'username'        => $vibe->user->username,
+                'profile_picture' => $vibe->user->profile_picture,
+                'enthusiast'      => $vibe->user->enthusiast,
+            ];
+            $vibe->setRelation('user', (object) $safeUser);
+        }
+        return $vibe;
+    }
+
+    /**
      * Display a listing of the resource.
      *
      * @return \Illuminate\Http\Response
@@ -47,6 +66,15 @@ class CategoryOtherController extends Controller
         return response()->json($result);
     }
 
+    /**
+     * List custom categories milik user (dengan vibes).
+     *
+     * Dipakai untuk:
+     *   - /api/category_other_user/{username}                      (authenticated)
+     *   - /api/public/users/{username}/categories-other            (public — guest boleh akses)
+     *
+     * Untuk guest, field sensitif user dalam relasi vibes.user di-filter.
+     */
     public function category_other_user(Request $request, $username)
     {
         try {
@@ -55,9 +83,6 @@ class CategoryOtherController extends Controller
 
             $categoryOther = CategoryOther::with('user')->where('user_id', $user->id);
 
-            // $data = $dataCategory;
-
-            // return response()->json($data);
             $searchTerm = $request->input('search', null);
             $perPage = $request->input('per_page', 10);
             $paginate = $request->input('pagination', false);
@@ -74,13 +99,24 @@ class CategoryOtherController extends Controller
                 $sortOrder
             );
 
-            // foreach ($categoryOther as $key => $value) {
-            //     $categoryOther[$key]['vibes'] =  'a'; //VibeOther::where('category_other_id', $value->id)->where('user_id', $user->id)->orderBy('created_at', 'DESC')->limit(3)->get();
-            // }
             foreach ($result['data'] as $key => $value) {
-                $result['data'][$key]['vibes'] =
-                    VibeOther::with('user')->where('category_other_id', $value->id)->orderBy('rating','DESC')->where('user_id', $user->id)->orderBy('created_at', 'DESC')->limit(3)->get();
-                // $vib = Vibe::where('category_id', $value->id)->inRandomOrder()->first();
+                // Sanitize user relation di category itu sendiri
+                $this->sanitizeUserRelation($value);
+
+                $vibes = VibeOther::with('user')
+                    ->where('category_other_id', $value->id)
+                    ->where('user_id', $user->id)
+                    ->orderBy('rating', 'DESC')
+                    ->orderBy('created_at', 'DESC')
+                    ->limit(3)
+                    ->get();
+
+                // Sanitize user relation di setiap vibe
+                foreach ($vibes as $vibe) {
+                    $this->sanitizeUserRelation($vibe);
+                }
+
+                $result['data'][$key]['vibes'] = $vibes;
             }
 
             return response()->json($result);
@@ -93,24 +129,31 @@ class CategoryOtherController extends Controller
         }
     }
 
+    /**
+     * Detail vibes per custom category untuk user tertentu.
+     *
+     * Dipakai untuk:
+     *   - /api/category_other_user_detail/{username}/{category_other_id}        (authenticated)
+     *   - /api/public/users/{username}/category-other/{category_other_id}       (public — guest boleh akses)
+     *
+     * Untuk guest, field sensitif user dalam relasi vibe.user di-filter.
+     */
     public function category_other_user_detail(Request $request, $username, $category_other_id)
     {
         try {
 
             $user = User::where('username', $username)->firstOrFail();
 
-            // $categoryOther = CategoryOther::with('user')->where('user_id', $user->id);
-
-            // $data = $dataCategory;
-
-            // return response()->json($data);
             $searchTerm = $request->input('search', null);
             $perPage = $request->input('per_page', 10);
             $paginate = $request->input('pagination', false);
             $sortColumn = $request->input('sort_column', 'id'); // Kolom untuk pengurutan
             $sortOrder = $request->input('sort_order', 'DESC'); // ASC atau DESC
 
-            $categoryOther = VibeOther::with(['category', 'user'])->where('category_other_id', $category_other_id)->where('user_id', $user->id)->orderBy('created_at', 'DESC');
+            $categoryOther = VibeOther::with(['category', 'user'])
+                ->where('category_other_id', $category_other_id)
+                ->where('user_id', $user->id)
+                ->orderBy('created_at', 'DESC');
 
             $result = PaginationHelper::searchAndPaginate(
                 $categoryOther,
@@ -122,14 +165,12 @@ class CategoryOtherController extends Controller
                 $sortOrder
             );
 
-            // foreach ($categoryOther as $key => $value) {
-            //     $categoryOther[$key]['vibes'] =  'a'; //VibeOther::where('category_other_id', $value->id)->where('user_id', $user->id)->orderBy('created_at', 'DESC')->limit(3)->get();
-            // }
-            // foreach ($result['data'] as $key => $value) {
-            //     $result['data'][$key]['vibes'] =
-            //         VibeOther::where('category_other_id', $value->id)->where('user_id', $user->id)->orderBy('created_at', 'DESC')->limit(3)->get();
-            //     // $vib = Vibe::where('category_id', $value->id)->inRandomOrder()->first();
-            // }
+            // Sanitize user data di setiap vibe — buang field sensitif untuk public access
+            if (isset($result['data'])) {
+                foreach ($result['data'] as $vibeItem) {
+                    $this->sanitizeUserRelation($vibeItem);
+                }
+            }
 
             return response()->json($result);
         } catch (\Exception $e) {

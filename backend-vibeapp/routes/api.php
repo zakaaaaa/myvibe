@@ -64,7 +64,7 @@ Route::get('/proxy', [\App\Http\Controllers\Api\ProxyController::class, 'proxy']
 */
 Route::middleware('throttle:60,1')->prefix('public')->group(function () {
     // Profile user + meta viewer flags
-    Route::get('/users/{username}', [UserController::class, 'showPublic']);
+    Route::get('/users/{username}', [FriendshipController::class, 'show']);
 
     // Detail vibe (built-in category)
     Route::get('/vibes/{username}/{vibe_id}', [VibeController::class, 'show']);
